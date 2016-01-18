@@ -23,8 +23,8 @@ fn main() {
 }
 
 fn hello_world<'a>(ui: &Ui<'a>) {
-    ui.window_ex(im_str!("Hello world"),
-        WindowEx::new().size((300.0, 100.0), ImGuiSetCond_FirstUseEver),
+    ui.window(im_str!("Hello world"),
+        WindowParams::new().size((300.0, 100.0), ImGuiSetCond_FirstUseEver),
         || {
             ui.text(im_str!("Hello world!"));
             ui.text(im_str!("This...is...imgui-rs!"));

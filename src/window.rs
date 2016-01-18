@@ -13,7 +13,7 @@ use super::{
     ImStr, ImVec2
 };
 
-pub struct WindowEx<'p> {
+pub struct WindowParams<'p> {
     pos: (f32, f32),
     pos_cond: ImGuiSetCond,
     size: (f32, f32),
@@ -23,9 +23,9 @@ pub struct WindowEx<'p> {
     flags: ImGuiWindowFlags,
 }
 
-impl<'p> WindowEx<'p> {
-    pub fn new() -> WindowEx<'p> {
-        WindowEx {
+impl<'p> WindowParams<'p> {
+    pub fn new() -> WindowParams<'p> {
+        WindowParams {
             pos: (0.0, 0.0),
             pos_cond: ImGuiSetCond::empty(),
             size: (0.0, 0.0),
@@ -37,7 +37,7 @@ impl<'p> WindowEx<'p> {
     }
     #[inline]
     pub fn position(self, pos: (f32, f32), cond: ImGuiSetCond) -> Self {
-        WindowEx {
+        WindowParams {
             pos: pos,
             pos_cond: cond,
             .. self
@@ -45,7 +45,7 @@ impl<'p> WindowEx<'p> {
     }
     #[inline]
     pub fn size(self, size: (f32, f32), cond: ImGuiSetCond) -> Self {
-        WindowEx {
+        WindowParams {
             size: size,
             size_cond: cond,
             .. self
@@ -53,126 +53,126 @@ impl<'p> WindowEx<'p> {
     }
     #[inline]
     pub fn opened(self, opened: &'p mut bool) -> Self {
-        WindowEx {
+        WindowParams {
             opened: Some(opened),
             .. self
         }
     }
     #[inline]
     pub fn bg_alpha(self, bg_alpha: f32) -> Self {
-        WindowEx {
+        WindowParams {
             bg_alpha: bg_alpha,
             .. self
         }
     }
     #[inline]
     pub fn flags(self, flags: ImGuiWindowFlags) -> Self {
-        WindowEx {
+        WindowParams {
             flags: flags,
             .. self
         }
     }
     #[inline]
     pub fn title_bar(self, value: bool) -> Self {
-        WindowEx {
+        WindowParams {
             flags: self.flags.with(ImGuiWindowFlags_NoTitleBar, !value),
             .. self
         }
     }
     #[inline]
     pub fn resizable(self, value: bool) -> Self {
-        WindowEx {
+        WindowParams {
             flags: self.flags.with(ImGuiWindowFlags_NoResize, !value),
             .. self
         }
     }
     #[inline]
     pub fn movable(self, value: bool) -> Self {
-        WindowEx {
+        WindowParams {
             flags: self.flags.with(ImGuiWindowFlags_NoMove, !value),
             .. self
         }
     }
     #[inline]
     pub fn scroll_bar(self, value: bool) -> Self {
-        WindowEx {
+        WindowParams {
             flags: self.flags.with(ImGuiWindowFlags_NoScrollbar, !value),
             .. self
         }
     }
     #[inline]
     pub fn scrollable(self, value: bool) -> Self {
-        WindowEx {
+        WindowParams {
             flags: self.flags.with(ImGuiWindowFlags_NoScrollWithMouse, !value),
             .. self
         }
     }
     #[inline]
     pub fn collapsible(self, value: bool) -> Self {
-        WindowEx {
+        WindowParams {
             flags: self.flags.with(ImGuiWindowFlags_NoCollapse, !value),
             .. self
         }
     }
     #[inline]
     pub fn always_auto_resize(self, value: bool) -> Self {
-        WindowEx {
+        WindowParams {
             flags: self.flags.with(ImGuiWindowFlags_AlwaysAutoResize, value),
             .. self
         }
     }
     #[inline]
     pub fn show_borders(self, value: bool) -> Self {
-        WindowEx {
+        WindowParams {
             flags: self.flags.with(ImGuiWindowFlags_ShowBorders, value),
             .. self
         }
     }
     #[inline]
     pub fn save_settings(self, value: bool) -> Self {
-        WindowEx {
+        WindowParams {
             flags: self.flags.with(ImGuiWindowFlags_NoSavedSettings, !value),
             .. self
         }
     }
     #[inline]
     pub fn inputs(self, value: bool) -> Self {
-        WindowEx {
+        WindowParams {
             flags: self.flags.with(ImGuiWindowFlags_NoInputs, !value),
             .. self
         }
     }
     #[inline]
     pub fn menu_bar(self, value: bool) -> Self {
-        WindowEx {
+        WindowParams {
             flags: self.flags.with(ImGuiWindowFlags_MenuBar, value),
             .. self
         }
     }
     #[inline]
     pub fn horizontal_scrollbar(self, value: bool) -> Self {
-        WindowEx {
+        WindowParams {
             flags: self.flags.with(ImGuiWindowFlags_HorizontalScrollbar, value),
             .. self
         }
     }
     #[inline]
     pub fn no_focus_on_appearing(self, value: bool) -> Self {
-        WindowEx {
+        WindowParams {
             flags: self.flags.with(ImGuiWindowFlags_NoFocusOnAppearing, value),
             .. self
         }
     }
     #[inline]
     pub fn no_bring_to_front_on_focus(self, value: bool) -> Self {
-        WindowEx {
+        WindowParams {
             flags: self.flags.with(ImGuiWindowFlags_NoBringToFrontOnFocus, value),
             .. self
         }
     }
 }
 
-pub fn window_ex<'p, F>(name: ImStr<'p>, params: WindowEx, f: F) where F: FnOnce() {
+pub fn window<'p, F>(name: ImStr<'p>, params: WindowParams, f: F) where F: FnOnce() {
     let render = unsafe {
         if !params.pos_cond.is_empty() {
             imgui_sys::igSetNextWindowPos(params.pos.into(), params.pos_cond);

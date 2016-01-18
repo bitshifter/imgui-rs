@@ -170,7 +170,7 @@ fn show_test_window<'a>(ui: &Ui<'a>, state: &mut State, opened: &mut bool) {
         show_example_app_manipulating_window_title(ui);
     }
     if state.show_app_about {
-        ui.window_ex(im_str!("About ImGui"), WindowEx::new()
+        ui.window(im_str!("About ImGui"), WindowParams::new()
             .always_auto_resize(true)
             .opened(&mut state.show_app_about),
             || {
@@ -181,7 +181,7 @@ fn show_test_window<'a>(ui: &Ui<'a>, state: &mut State, opened: &mut bool) {
             })
     }
 
-    ui.window_ex(im_str!("ImGui Demo"), WindowEx::new()
+    ui.window(im_str!("ImGui Demo"), WindowParams::new()
         .title_bar(!state.no_titlebar)
         .show_borders(!state.no_border)
         .resizable(!state.no_resize)
@@ -416,7 +416,7 @@ fn show_example_menu_file<'a>(ui: &Ui<'a>, state: &mut FileMenuState) {
 }
 
 fn show_example_app_auto_resize<'a>(ui: &Ui<'a>, state: &mut AutoResizeState, opened: &mut bool) {
-    ui.window_ex(im_str!("Example: Auto-resizing window"), WindowEx::new()
+    ui.window(im_str!("Example: Auto-resizing window"), WindowParams::new()
         .opened(opened)
         .always_auto_resize(true),
         || {
@@ -431,7 +431,7 @@ output your content because that would create a feedback loop."));
 }
 
 fn show_example_app_fixed_overlay<'a>(ui: &Ui<'a>, opened: &mut bool) {
-    ui.window_ex(im_str!("Example: Fixed Overlay"), WindowEx::new()
+    ui.window(im_str!("Example: Fixed Overlay"), WindowParams::new()
         .opened(opened)
         .bg_alpha(0.3)
         .title_bar(false)
@@ -447,13 +447,13 @@ fn show_example_app_fixed_overlay<'a>(ui: &Ui<'a>, opened: &mut bool) {
 }
 
 fn show_example_app_manipulating_window_title<'a>(ui: &Ui<'a>) {
-    ui.window_ex(im_str!("Same title as another window##1"), WindowEx::new()
+    ui.window(im_str!("Same title as another window##1"), WindowParams::new()
         .position((100.0, 100.0), ImGuiSetCond_FirstUseEver),
         || {
             ui.text(im_str!("This is window 1.
 My title is the same as window 2, but my identifier is unique."));
         });
-    ui.window_ex(im_str!("Same title as another window##2"), WindowEx::new()
+    ui.window(im_str!("Same title as another window##2"), WindowParams::new()
         .position((100.0, 200.0), ImGuiSetCond_FirstUseEver),
         || {
             ui.text(im_str!("This is window 2.
@@ -463,7 +463,7 @@ My title is the same as window 1, but my identifier is unique."));
     let ch_idx = (ui.imgui().get_time() / 0.25) as usize & 3;
     let num = ui.imgui().get_frame_count(); // The C++ version uses rand() here
     let title = im_str!("Animated title {} {}###AnimatedTitle", chars[ch_idx], num);
-    ui.window_ex(title, WindowEx::new()
+    ui.window(title, WindowParams::new()
         .position((100.0, 300.0), ImGuiSetCond_FirstUseEver),
         || {
             ui.text(im_str!("This window has a changing title"));
