@@ -50,7 +50,7 @@ pub use menus::{Menu, MenuItem};
 pub use sliders::{SliderFloat, SliderInt};
 pub use trees::{TreeNode};
 pub use widgets::{CollapsingHeader};
-pub use window::{Window};
+pub use window::{window_ex, WindowEx};
 
 mod input;
 mod menus;
@@ -381,7 +381,14 @@ impl<'a> Ui<'a> {
 
 // Window
 impl<'ui> Ui<'ui> {
-    pub fn window<'p>(&self, name: ImStr<'p>) -> Window<'ui, 'p> { Window::new(name) }
+    #[inline]
+    pub fn window<'p, F>(&self, name: ImStr<'p>, f: F) where F: FnOnce() {
+        ::window_ex(name, WindowEx::new(), f)
+    }
+    #[inline]
+    pub fn window_ex<'p, F>(&self, name: ImStr<'p>, params: WindowEx, f: F) where F: FnOnce() {
+        ::window_ex(name, params, f)
+    }
 }
 
 // Layout

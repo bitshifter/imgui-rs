@@ -170,10 +170,10 @@ fn show_test_window<'a>(ui: &Ui<'a>, state: &mut State, opened: &mut bool) {
         show_example_app_manipulating_window_title(ui);
     }
     if state.show_app_about {
-        ui.window(im_str!("About ImGui"))
+        ui.window_ex(im_str!("About ImGui"), WindowEx::new()
             .always_auto_resize(true)
-            .opened(&mut state.show_app_about)
-            .build(|| {
+            .opened(&mut state.show_app_about),
+            || {
                 ui.text(im_str!("ImGui {}", imgui::get_version()));
                 ui.separator();
                 ui.text(im_str!("By Omar Cornut and all github contributors."));
@@ -181,7 +181,7 @@ fn show_test_window<'a>(ui: &Ui<'a>, state: &mut State, opened: &mut bool) {
             })
     }
 
-    ui.window(im_str!("ImGui Demo"))
+    ui.window_ex(im_str!("ImGui Demo"), WindowEx::new()
         .title_bar(!state.no_titlebar)
         .show_borders(!state.no_border)
         .resizable(!state.no_resize)
@@ -191,8 +191,8 @@ fn show_test_window<'a>(ui: &Ui<'a>, state: &mut State, opened: &mut bool) {
         .menu_bar(!state.no_menu)
         .bg_alpha(state.bg_alpha)
         .size((550.0, 680.0), ImGuiSetCond_FirstUseEver)
-        .opened(opened)
-        .build(|| {
+        .opened(opened),
+        || {
             ui.text(im_str!("ImGui says hello."));
             ui.menu_bar(|| {
                 ui.menu(im_str!("Menu")).build(|| {
@@ -416,10 +416,10 @@ fn show_example_menu_file<'a>(ui: &Ui<'a>, state: &mut FileMenuState) {
 }
 
 fn show_example_app_auto_resize<'a>(ui: &Ui<'a>, state: &mut AutoResizeState, opened: &mut bool) {
-    ui.window(im_str!("Example: Auto-resizing window"))
+    ui.window_ex(im_str!("Example: Auto-resizing window"), WindowEx::new()
         .opened(opened)
-        .always_auto_resize(true)
-        .build(|| {
+        .always_auto_resize(true),
+        || {
             ui.text(im_str!("Window will resize every-ui to the size of its content.
 Note that you probably don't want to query the window size to
 output your content because that would create a feedback loop."));
@@ -431,14 +431,14 @@ output your content because that would create a feedback loop."));
 }
 
 fn show_example_app_fixed_overlay<'a>(ui: &Ui<'a>, opened: &mut bool) {
-    ui.window(im_str!("Example: Fixed Overlay"))
+    ui.window_ex(im_str!("Example: Fixed Overlay"), WindowEx::new()
         .opened(opened)
         .bg_alpha(0.3)
         .title_bar(false)
         .resizable(false)
         .movable(false)
-        .save_settings(false)
-        .build(|| {
+        .save_settings(false),
+        || {
             ui.text(im_str!("Simple overlay\non the top-left side of the screen."));
             ui.separator();
             let mouse_pos = ui.imgui().mouse_pos();
@@ -447,15 +447,15 @@ fn show_example_app_fixed_overlay<'a>(ui: &Ui<'a>, opened: &mut bool) {
 }
 
 fn show_example_app_manipulating_window_title<'a>(ui: &Ui<'a>) {
-    ui.window(im_str!("Same title as another window##1"))
-        .position((100.0, 100.0), ImGuiSetCond_FirstUseEver)
-        .build(|| {
+    ui.window_ex(im_str!("Same title as another window##1"), WindowEx::new()
+        .position((100.0, 100.0), ImGuiSetCond_FirstUseEver),
+        || {
             ui.text(im_str!("This is window 1.
 My title is the same as window 2, but my identifier is unique."));
         });
-    ui.window(im_str!("Same title as another window##2"))
-        .position((100.0, 200.0), ImGuiSetCond_FirstUseEver)
-        .build(|| {
+    ui.window_ex(im_str!("Same title as another window##2"), WindowEx::new()
+        .position((100.0, 200.0), ImGuiSetCond_FirstUseEver),
+        || {
             ui.text(im_str!("This is window 2.
 My title is the same as window 1, but my identifier is unique."));
         });
@@ -463,9 +463,9 @@ My title is the same as window 1, but my identifier is unique."));
     let ch_idx = (ui.imgui().get_time() / 0.25) as usize & 3;
     let num = ui.imgui().get_frame_count(); // The C++ version uses rand() here
     let title = im_str!("Animated title {} {}###AnimatedTitle", chars[ch_idx], num);
-    ui.window(title)
-        .position((100.0, 300.0), ImGuiSetCond_FirstUseEver)
-        .build(|| {
+    ui.window_ex(title, WindowEx::new()
+        .position((100.0, 300.0), ImGuiSetCond_FirstUseEver),
+        || {
             ui.text(im_str!("This window has a changing title"));
         });
 }

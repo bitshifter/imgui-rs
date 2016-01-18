@@ -23,9 +23,9 @@ fn main() {
 }
 
 fn hello_world<'a>(ui: &Ui<'a>) {
-    ui.window(im_str!("Hello world"))
-        .size((300.0, 100.0), ImGuiSetCond_FirstUseEver)
-        .build(|| {
+    ui.window_ex(im_str!("Hello world"),
+        WindowEx::new().size((300.0, 100.0), ImGuiSetCond_FirstUseEver),
+        || {
             ui.text(im_str!("Hello world!"));
             ui.text(im_str!("This...is...imgui-rs!"));
             ui.separator();
