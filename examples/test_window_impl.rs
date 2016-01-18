@@ -170,9 +170,9 @@ fn show_test_window<'a>(ui: &Ui<'a>, state: &mut State, opened: &mut bool) {
         show_example_app_manipulating_window_title(ui);
     }
     if state.show_app_about {
-        ui.window(im_str!("About ImGui"), WindowParams::new()
+        WindowOptions::new()
             .always_auto_resize(true)
-            .opened(&mut state.show_app_about),
+            .window_opened(ui, im_str!("About ImGui"), &mut state.show_app_about,
             || {
                 ui.text(im_str!("ImGui {}", imgui::get_version()));
                 ui.separator();
@@ -181,7 +181,7 @@ fn show_test_window<'a>(ui: &Ui<'a>, state: &mut State, opened: &mut bool) {
             })
     }
 
-    ui.window(im_str!("ImGui Demo"), WindowParams::new()
+    WindowOptions::new()
         .title_bar(!state.no_titlebar)
         .show_borders(!state.no_border)
         .resizable(!state.no_resize)
@@ -191,7 +191,7 @@ fn show_test_window<'a>(ui: &Ui<'a>, state: &mut State, opened: &mut bool) {
         .menu_bar(!state.no_menu)
         .bg_alpha(state.bg_alpha)
         .size((550.0, 680.0), ImGuiSetCond_FirstUseEver)
-        .opened(opened),
+        .window_opened(ui, im_str!("ImGui Demo"), opened,
         || {
             ui.text(im_str!("ImGui says hello."));
             ui.menu_bar(|| {
@@ -307,7 +307,7 @@ fn show_test_window<'a>(ui: &Ui<'a>, state: &mut State, opened: &mut bool) {
 
                     ui.text(im_str!("Hiragana: かきくけこ (kakikukeko)"));
                     ui.text(im_str!("Kanjis: 日本語 (nihongo)"));
-                    ui.input_text(im_str!("UTF-8 input"), &mut state.buf).build();
+                    ui.input_text(im_str!("UTF-8 input"), &mut state.buf);
                 });
 
                 ui.separator();
@@ -319,21 +319,21 @@ fn show_test_window<'a>(ui: &Ui<'a>, state: &mut State, opened: &mut bool) {
                     im_str!("EEEE"), im_str!("FFFF"), im_str!("GGGG"), im_str!("HHHH"),
                     im_str!("IIII"), im_str!("JJJJ"), im_str!("KKKK")];
                 ui.combo(im_str!("combo scroll"), &mut state.item2, &items);
-                ui.input_text(im_str!("input text"), &mut state.text).build();
-                ui.input_int(im_str!("input int"), &mut state.i0).build();
-                ui.input_float(im_str!("input float"), &mut state.f0)
-                    .step(0.01).step_fast(1.0).build();
-                ui.input_float3(im_str!("input float3"), &mut state.vec3f).build();
-                ui.color_edit3(im_str!("color 1"), &mut state.col1).build();
-                ui.color_edit4(im_str!("color 2"), &mut state.col2).build();
+                ui.input_text(im_str!("input text"), &mut state.text);
+                ui.input_int(im_str!("input int"), &mut state.i0);
+                InputFloatOptions::new().step(0.01).step_fast(1.0)
+                    .input_float(&ui, im_str!("input float"), &mut state.f0);
+                ui.input_float3(im_str!("input float3"), &mut state.vec3f);
+                ui.color_edit3(im_str!("color 1"), &mut state.col1);
+                ui.color_edit4(im_str!("color 2"), &mut state.col2);
 
                 ui.tree_node(im_str!("Multi-component Widgets")).build(|| {
-                    ui.input_float2(im_str!("input float2"), &mut state.vec2f).build();
-                    ui.input_int2(im_str!("input int2"), &mut state.vec2i).build();
+                    ui.input_float2(im_str!("input float2"), &mut state.vec2f);
+                    ui.input_int2(im_str!("input int2"), &mut state.vec2i);
                     ui.spacing();
 
-                    ui.input_float3(im_str!("input float3"), &mut state.vec3f).build();
-                    ui.input_int3(im_str!("input int3"), &mut state.vec3i).build();
+                    ui.input_float3(im_str!("input float3"), &mut state.vec3f);
+                    ui.input_int3(im_str!("input int3"), &mut state.vec3i);
                     ui.spacing();
                 });
             }
@@ -416,9 +416,9 @@ fn show_example_menu_file<'a>(ui: &Ui<'a>, state: &mut FileMenuState) {
 }
 
 fn show_example_app_auto_resize<'a>(ui: &Ui<'a>, state: &mut AutoResizeState, opened: &mut bool) {
-    ui.window(im_str!("Example: Auto-resizing window"), WindowParams::new()
-        .opened(opened)
-        .always_auto_resize(true),
+    WindowOptions::new()
+        .always_auto_resize(true)
+        .window_opened(ui, im_str!("Example: Auto-resizing window"), opened,
         || {
             ui.text(im_str!("Window will resize every-ui to the size of its content.
 Note that you probably don't want to query the window size to
@@ -431,13 +431,13 @@ output your content because that would create a feedback loop."));
 }
 
 fn show_example_app_fixed_overlay<'a>(ui: &Ui<'a>, opened: &mut bool) {
-    ui.window(im_str!("Example: Fixed Overlay"), WindowParams::new()
-        .opened(opened)
+    WindowOptions::new()
         .bg_alpha(0.3)
         .title_bar(false)
         .resizable(false)
         .movable(false)
-        .save_settings(false),
+        .save_settings(false)
+        .window_opened(ui, im_str!("Example: Fixed Overlay"), opened,
         || {
             ui.text(im_str!("Simple overlay\non the top-left side of the screen."));
             ui.separator();
@@ -447,14 +447,16 @@ fn show_example_app_fixed_overlay<'a>(ui: &Ui<'a>, opened: &mut bool) {
 }
 
 fn show_example_app_manipulating_window_title<'a>(ui: &Ui<'a>) {
-    ui.window(im_str!("Same title as another window##1"), WindowParams::new()
-        .position((100.0, 100.0), ImGuiSetCond_FirstUseEver),
+    WindowOptions::new()
+        .position((100.0, 100.0), ImGuiSetCond_FirstUseEver)
+        .window(ui, im_str!("Same title as another window##1"),
         || {
             ui.text(im_str!("This is window 1.
 My title is the same as window 2, but my identifier is unique."));
         });
-    ui.window(im_str!("Same title as another window##2"), WindowParams::new()
-        .position((100.0, 200.0), ImGuiSetCond_FirstUseEver),
+    WindowOptions::new()
+        .position((100.0, 200.0), ImGuiSetCond_FirstUseEver)
+        .window(ui, im_str!("Same title as another window##2"),
         || {
             ui.text(im_str!("This is window 2.
 My title is the same as window 1, but my identifier is unique."));
@@ -463,8 +465,9 @@ My title is the same as window 1, but my identifier is unique."));
     let ch_idx = (ui.imgui().get_time() / 0.25) as usize & 3;
     let num = ui.imgui().get_frame_count(); // The C++ version uses rand() here
     let title = im_str!("Animated title {} {}###AnimatedTitle", chars[ch_idx], num);
-    ui.window(title, WindowParams::new()
-        .position((100.0, 300.0), ImGuiSetCond_FirstUseEver),
+    WindowOptions::new()
+        .position((100.0, 300.0), ImGuiSetCond_FirstUseEver)
+        .window(ui, title,
         || {
             ui.text(im_str!("This window has a changing title"));
         });

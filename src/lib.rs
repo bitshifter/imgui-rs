@@ -41,16 +41,16 @@ pub use imgui_sys::{
     ImGuiKey
 };
 pub use input::{
-	ColorEdit3, ColorEdit4,
-	InputFloat, InputFloat2, InputFloat3, InputFloat4,
-	InputInt, InputInt2, InputInt3, InputInt4,
-	InputText
+	color_edit3, color_edit4,
+	InputFloatOptions,
+	InputIntOptions,
+	InputTextOptions
 };
 pub use menus::{Menu, MenuItem};
 pub use sliders::{SliderFloat, SliderInt};
 pub use trees::{TreeNode};
 pub use widgets::{CollapsingHeader};
-pub use window::{window, WindowParams};
+pub use window::{WindowOptions};
 
 mod input;
 mod menus;
@@ -382,8 +382,12 @@ impl<'a> Ui<'a> {
 // Window
 impl<'ui> Ui<'ui> {
     #[inline]
-    pub fn window<'p, F>(&self, name: ImStr<'p>, params: WindowParams, f: F) where F: FnOnce() {
-        ::window(name, params, f)
+    pub fn window<'p, F>(&self, name: ImStr<'p>, f: F) where F: FnOnce() {
+        WindowOptions::new().window(self, name, f)
+    }
+    #[inline]
+    pub fn window_opened<'p, F>(&self, name: ImStr<'p>, opened: &'p mut bool, f: F) where F: FnOnce() {
+        WindowOptions::new().window_opened(self, name, opened, f)
     }
 }
 
@@ -463,44 +467,47 @@ impl<'ui> Ui<'ui> {
 
 // Widgets: Input
 impl<'ui> Ui<'ui> {
-    pub fn color_edit3<'p>(&self, label: ImStr<'p>, value: &'p mut [f32;3]) -> ColorEdit3<'ui, 'p> {
-        ColorEdit3::new(label, value)
+    pub fn color_edit3<'p>(&self, label: ImStr<'p>, value: &'p mut [f32;3]) -> bool {
+        ::color_edit3(self, label, value)
     }
-    pub fn color_edit4<'p>(&self, label: ImStr<'p>, value: &'p mut [f32;4]) -> ColorEdit4<'ui, 'p> {
-        ColorEdit4::new(label, value)
+    pub fn color_edit4<'p>(&self, label: ImStr<'p>, value: &'p mut [f32;4]) -> bool {
+        ::color_edit4(self, label, value, true)
     }
-    pub fn input_text<'p>(&self, label: ImStr<'p>, buf: &'p mut str) -> InputText<'ui, 'p> {
-        InputText::new(label, buf)
+    pub fn color_edit4_show_alpha<'p>(&self, label: ImStr<'p>, value: &'p mut [f32;4], show_alpha: bool) -> bool {
+        ::color_edit4(self, label, value, show_alpha)
     }
-    pub fn input_f32<'p>(&self, label: ImStr<'p>, value: &'p mut f32) -> InputFloat<'ui, 'p> {
-        InputFloat::new(label, value)
+    pub fn input_text<'p>(&self, label: ImStr<'p>, buf: &'p mut str) -> bool {
+        InputTextOptions::new().input_text(&self, label, buf)
     }
-    pub fn input_float<'p>(&self, label: ImStr<'p>, value: &'p mut f32) -> InputFloat<'ui, 'p> {
-        InputFloat::new(label, value)
+    pub fn input_f32<'p>(&self, label: ImStr<'p>, value: &'p mut f32) -> bool {
+        InputFloatOptions::new().input_float(&self, label, value)
     }
-    pub fn input_float2<'p>(&self, label: ImStr<'p>, value: &'p mut [f32;2]) -> InputFloat2<'ui, 'p> {
-        InputFloat2::new(label, value)
+    pub fn input_float<'p>(&self, label: ImStr<'p>, value: &'p mut f32) -> bool {
+        InputFloatOptions::new().input_float(self, label, value)
     }
-    pub fn input_float3<'p>(&self, label: ImStr<'p>, value: &'p mut [f32;3]) -> InputFloat3<'ui, 'p> {
-        InputFloat3::new(label, value)
+    pub fn input_float2<'p>(&self, label: ImStr<'p>, value: &'p mut [f32;2]) -> bool {
+        InputFloatOptions::new().input_float2(self, label, value)
     }
-    pub fn input_float4<'p>(&self, label: ImStr<'p>, value: &'p mut [f32;4]) -> InputFloat4<'ui, 'p> {
-        InputFloat4::new(label, value)
+    pub fn input_float3<'p>(&self, label: ImStr<'p>, value: &'p mut [f32;3]) -> bool {
+        InputFloatOptions::new().input_float3(self, label, value)
     }
-    pub fn input_i32<'p>(&self, label: ImStr<'p>, value: &'p mut i32) -> InputInt<'ui, 'p> {
-        InputInt::new(label, value)
+    pub fn input_float4<'p>(&self, label: ImStr<'p>, value: &'p mut [f32;4]) -> bool {
+        InputFloatOptions::new().input_float4(self, label, value)
     }
-    pub fn input_int<'p>(&self, label: ImStr<'p>, value: &'p mut i32) -> InputInt<'ui, 'p> {
-        InputInt::new(label, value)
+    pub fn input_i32<'p>(&self, label: ImStr<'p>, value: &'p mut i32) -> bool {
+        InputIntOptions::new().input_int(self, label, value)
     }
-    pub fn input_int2<'p>(&self, label: ImStr<'p>, value: &'p mut [i32;2]) -> InputInt2<'ui, 'p> {
-        InputInt2::new(label, value)
+    pub fn input_int<'p>(&self, label: ImStr<'p>, value: &'p mut i32) -> bool {
+        InputIntOptions::new().input_int(self, label, value)
     }
-    pub fn input_int3<'p>(&self, label: ImStr<'p>, value: &'p mut [i32;3]) -> InputInt3<'ui, 'p> {
-        InputInt3::new(label, value)
+    pub fn input_int2<'p>(&self, label: ImStr<'p>, value: &'p mut [i32;2]) -> bool {
+        InputIntOptions::new().input_int2(self, label, value)
     }
-    pub fn input_int4<'p>(&self, label: ImStr<'p>, value: &'p mut [i32;4]) -> InputInt4<'ui, 'p> {
-        InputInt4::new(label, value)
+    pub fn input_int3<'p>(&self, label: ImStr<'p>, value: &'p mut [i32;3]) -> bool {
+        InputIntOptions::new().input_int3(self, label, value)
+    }
+    pub fn input_int4<'p>(&self, label: ImStr<'p>, value: &'p mut [i32;4]) -> bool {
+        InputIntOptions::new().input_int4(self, label, value)
     }
 }
 

@@ -1,6 +1,5 @@
 use imgui_sys;
 use libc::size_t;
-use std::marker::PhantomData;
 use std::ptr;
 
 use super::{
@@ -18,115 +17,87 @@ use super::{
 macro_rules! impl_text_flags {
     ($InputType:ident) => {
         #[inline]
-        pub fn flags(self, flags: ImGuiInputTextFlags) -> Self {
-            $InputType {
-                flags: flags,
-                .. self
-            }
+        pub fn flags(&mut self, flags: ImGuiInputTextFlags) -> &mut Self {
+            self.flags = flags;
+            self
         }
 
         #[inline]
-        pub fn chars_decimal(self, value: bool) -> Self {
-            $InputType {
-                flags: self.flags.with(ImGuiInputTextFlags_CharsDecimal, value),
-                .. self
-            }
+        pub fn chars_decimal(&mut self, value: bool) -> &mut Self {
+            self.flags = self.flags.with(ImGuiInputTextFlags_CharsDecimal, value);
+            self
         }
 
         #[inline]
-        pub fn chars_hexadecimal(self, value: bool) -> Self {
-            $InputType {
-                flags: self.flags.with(ImGuiInputTextFlags_CharsHexadecimal, value),
-                .. self
-            }
+        pub fn chars_hexadecimal(&mut self, value: bool) -> &mut Self {
+            self.flags = self.flags.with(ImGuiInputTextFlags_CharsHexadecimal, value);
+            self
         }
 
         #[inline]
-        pub fn chars_uppercase(self, value: bool) -> Self {
-            $InputType {
-                flags: self.flags.with(ImGuiInputTextFlags_CharsUppercase, value),
-                .. self
-            }
+        pub fn chars_uppercase(&mut self, value: bool) -> &mut Self {
+            self.flags = self.flags.with(ImGuiInputTextFlags_CharsUppercase, value);
+            self
         }
 
         #[inline]
-        pub fn chars_noblank(self, value: bool) -> Self {
-            $InputType {
-                flags: self.flags.with(ImGuiInputTextFlags_CharsNoBlank, value),
-                .. self
-            }
+        pub fn chars_noblank(&mut self, value: bool) -> &mut Self {
+            self.flags = self.flags.with(ImGuiInputTextFlags_CharsNoBlank, value);
+            self
         }
 
         #[inline]
-        pub fn auto_select_all(self, value: bool) -> Self {
-            $InputType {
-                flags: self.flags.with(ImGuiInputTextFlags_AutoSelectAll, value),
-                .. self
-            }
+        pub fn auto_select_all(&mut self, value: bool) -> &mut Self {
+            self.flags = self.flags.with(ImGuiInputTextFlags_AutoSelectAll, value);
+            self
         }
 
         #[inline]
-        pub fn enter_returns_true(self, value: bool) -> Self {
-            $InputType {
-                flags: self.flags.with(ImGuiInputTextFlags_EnterReturnsTrue, value),
-                .. self
-            }
+        pub fn enter_returns_true(&mut self, value: bool) -> &mut Self {
+            self.flags = self.flags.with(ImGuiInputTextFlags_EnterReturnsTrue, value);
+            self
         }
 
         #[inline]
-        pub fn callback_completion(self, value: bool) -> Self {
-            $InputType {
-                flags: self.flags.with(ImGuiInputTextFlags_CallbackCompletion, value),
-                .. self
-            }
+        pub fn callback_completion(&mut self, value: bool) -> &mut Self {
+            self.flags = self.flags.with(ImGuiInputTextFlags_CallbackCompletion, value);
+            self
         }
 
         #[inline]
-        pub fn callback_history(self, value: bool) -> Self {
-            $InputType {
-                flags: self.flags.with(ImGuiInputTextFlags_CallbackHistory, value),
-                .. self
-            }
+        pub fn callback_history(&mut self, value: bool) -> &mut Self {
+            self.flags = self.flags.with(ImGuiInputTextFlags_CallbackHistory, value);
+            self
         }
 
         #[inline]
-        pub fn callback_always(self, value: bool) -> Self {
-            $InputType {
-                flags: self.flags.with(ImGuiInputTextFlags_CallbackAlways, value),
-                .. self
-            }
+        pub fn callback_always(&mut self, value: bool) -> &mut Self {
+            self.flags = self.flags.with(ImGuiInputTextFlags_CallbackAlways, value);
+            self
         }
 
         #[inline]
-        pub fn callback_char_filter(self, value: bool) -> Self {
-            $InputType {
-                flags: self.flags.with(ImGuiInputTextFlags_CallbackCharFilter, value),
-                .. self
-            }
+        pub fn callback_char_filter(&mut self, value: bool) -> &mut Self {
+            self.flags = self.flags.with(ImGuiInputTextFlags_CallbackCharFilter, value);
+            self
         }
 
         #[inline]
-        pub fn allow_tab_input(self, value: bool) -> Self {
-            $InputType {
-                flags: self.flags.with(ImGuiInputTextFlags_AllowTabInput, value),
-                .. self
-            }
+        pub fn allow_tab_input(&mut self, value: bool) -> &mut Self {
+            self.flags = self.flags.with(ImGuiInputTextFlags_AllowTabInput, value);
+            self
         }
 
         #[inline]
-        pub fn no_horizontal_scroll(self, value: bool) -> Self {
-            $InputType {
-                flags: self.flags.with(ImGuiInputTextFlags_NoHorizontalScroll, value),
-                .. self
-            }
+        pub fn no_horizontal_scroll(&mut self, value: bool) -> &mut Self {
+            self.flags = self.flags.with(ImGuiInputTextFlags_NoHorizontalScroll, value);
+            self
         }
 
         #[inline]
-        pub fn always_insert_mode(self, value: bool) -> Self {
-            $InputType {
-                flags: self.flags.with(ImGuiInputTextFlags_AlwaysInsertMode, value),
-                .. self
-            }
+        pub fn always_insert_mode(&mut self, value: bool) -> &mut Self {
+            self.flags = self.flags.with(ImGuiInputTextFlags_AlwaysInsertMode, value);
+            self
         }
 
     }
@@ -135,19 +106,15 @@ macro_rules! impl_text_flags {
 macro_rules! impl_step_params {
     ($InputType:ident, $Value:ty) => {
         #[inline]
-        pub fn step(self, value: $Value) -> Self {
-            $InputType {
-                step: value,
-                .. self
-            }
+        pub fn step(&mut self, value: $Value) -> &mut Self {
+            self.step = value;
+            self
         }
 
         #[inline]
-        pub fn step_fast(self, value: $Value) -> Self {
-            $InputType {
-                step_fast: value,
-                .. self
-            }
+        pub fn step_fast(&mut self, value: $Value) -> &mut Self {
+            self.step_fast = value;
+            self
         }
     }
 }
@@ -155,45 +122,37 @@ macro_rules! impl_step_params {
 macro_rules! impl_precision_params {
     ($InputType:ident) => {
         #[inline]
-        pub fn decimal_precision(self, value: i32) -> Self {
-            $InputType {
-                decimal_precision: value,
-                .. self
-            }
+        pub fn decimal_precision(&mut self, value: i32) -> &mut Self {
+            self.decimal_precision = value;
+            self
         }
     }
 }
 
 #[must_use]
-pub struct InputText<'ui, 'p> {
-    label: ImStr<'p>,
-    buf: &'p mut str,
-    flags: ImGuiInputTextFlags,
-    _phantom: PhantomData<&'ui Ui<'ui>>
+pub struct InputTextOptions {
+    flags: ImGuiInputTextFlags
 }
 
-impl<'ui, 'p> InputText<'ui, 'p> {
-    pub fn new(label: ImStr<'p>, buf: &'p mut str) -> Self {
-        InputText {
-            label: label,
-            buf: buf,
+impl InputTextOptions {
+    pub fn new() -> Self {
+        InputTextOptions {
             flags: ImGuiInputTextFlags::empty(),
-            _phantom: PhantomData
         }
     }
 
-    impl_text_flags!(InputText);
+    impl_text_flags!(InputTextOptions);
 
     // TODO: boxed closure...?
     // pub fn callback(self) -> Self { }
 
-    pub fn build(self) -> bool {
+    pub fn input_text<'ui, 'p>(&self, _ui: &'ui Ui, label: ImStr<'p>, buf: &'p mut str) -> bool {
         unsafe {
             imgui_sys::igInputText(
-                self.label.as_ptr(),
+                label.as_ptr(),
                 // TODO: this is evil. Perhaps something else than &mut str is better
-                self.buf.as_ptr() as *mut i8,
-                self.buf.len() as size_t,
+                buf.as_ptr() as *mut i8,
+                buf.len() as size_t,
                 self.flags,
                 None,
                 ptr::null_mut())
@@ -202,71 +161,94 @@ impl<'ui, 'p> InputText<'ui, 'p> {
 }
 
 #[must_use]
-pub struct InputInt<'ui, 'p> {
-    label: ImStr<'p>,
-    value: &'p mut i32,
+pub struct InputIntOptions {
     step: i32,
     step_fast: i32,
     flags: ImGuiInputTextFlags,
-    _phantom: PhantomData<&'ui Ui<'ui>>
 }
 
-impl<'ui, 'p> InputInt<'ui, 'p> {
-    pub fn new(label: ImStr<'p>, value: &'p mut i32) -> Self {
-        InputInt {
-            label: label,
-            value: value,
+macro_rules! impl_input_intn {
+    ($input_intn:ident, $N:expr, $igInputIntN:ident) => {
+        pub fn $input_intn<'ui, 'p>(&self, _ui: &'ui Ui, label: ImStr<'p>, value: &'p mut [i32;$N]) -> bool {
+            unsafe {
+                imgui_sys::$igInputIntN(
+                    label.as_ptr(),
+                    value.as_mut_ptr(),
+                    self.flags)
+            }
+        }
+    }
+}
+
+impl InputIntOptions {
+    pub fn new() -> Self {
+        InputIntOptions {
             step: 1,
             step_fast: 100,
             flags: ImGuiInputTextFlags::empty(),
-            _phantom: PhantomData
         }
     }
 
-    pub fn build(self) -> bool {
+    impl_step_params!(InputIntOptions, i32);
+    impl_text_flags!(InputIntOptions);
+
+    pub fn input_int<'ui, 'p>(&self, _ui: &'ui Ui, label: ImStr<'p>, value: &'p mut i32) -> bool {
         unsafe {
             imgui_sys::igInputInt(
-                self.label.as_ptr(),
-                self.value as *mut i32,
+                label.as_ptr(),
+                value as *mut i32,
                 self.step,
                 self.step_fast,
                 self.flags)
         }
     }
 
-    impl_step_params!(InputInt, i32);
-    impl_text_flags!(InputInt);
+    impl_input_intn!(input_int2, 2, igInputInt2);
+    impl_input_intn!(input_int3, 3, igInputInt3);
+    impl_input_intn!(input_int4, 4, igInputInt4);
 }
 
 #[must_use]
-pub struct InputFloat<'ui, 'p> {
-    label: ImStr<'p>,
-    value: &'p mut f32,
+pub struct InputFloatOptions {
     step: f32,
     step_fast: f32,
     decimal_precision: i32,
     flags: ImGuiInputTextFlags,
-    _phantom: PhantomData<&'ui Ui<'ui>>
 }
 
-impl<'ui, 'p> InputFloat<'ui, 'p> {
-    pub fn new(label: ImStr<'p>, value: &'p mut f32) -> Self {
-        InputFloat {
-            label: label,
-            value: value,
+macro_rules! impl_input_floatn {
+    ($input_floatn:ident, $N:expr, $igInputFloatN:ident) => {
+        pub fn $input_floatn<'ui, 'p>(&self, _ui: &'ui Ui, label: ImStr<'p>, value: &'p mut [f32;$N]) -> bool {
+            unsafe {
+                imgui_sys::$igInputFloatN(
+                    label.as_ptr(),
+                    value.as_mut_ptr(),
+                    self.decimal_precision,
+                    self.flags)
+            }
+        }
+    }
+}
+
+impl InputFloatOptions {
+    pub fn new() -> Self {
+        InputFloatOptions {
             step: 0.0,
             step_fast: 0.0,
             decimal_precision: -1,
             flags: ImGuiInputTextFlags::empty(),
-            _phantom: PhantomData
         }
     }
 
-    pub fn build(self) -> bool {
+    impl_step_params!(InputFloatOptions, f32);
+    impl_precision_params!(InputFloatOptions);
+    impl_text_flags!(InputFloatOptions);
+
+    pub fn input_float<'ui, 'p>(&self, _ui: &'ui Ui, label: ImStr<'p>, value: &'p mut f32) -> bool {
         unsafe {
             imgui_sys::igInputFloat(
-                self.label.as_ptr(),
-                self.value as *mut f32,
+                label.as_ptr(),
+                value as *mut f32,
                 self.step,
                 self.step_fast,
                 self.decimal_precision,
@@ -274,140 +256,25 @@ impl<'ui, 'p> InputFloat<'ui, 'p> {
         }
     }
 
-    impl_step_params!(InputFloat, f32);
-    impl_precision_params!(InputFloat);
-    impl_text_flags!(InputFloat);
+    impl_input_floatn!(input_float2, 2, igInputFloat2);
+    impl_input_floatn!(input_float3, 3, igInputFloat3);
+    impl_input_floatn!(input_float4, 4, igInputFloat4);
 }
 
-macro_rules! impl_input_floatn {
-    ($InputFloatN:ident, $N:expr, $igInputFloatN:ident) => {
-        #[must_use]
-        pub struct $InputFloatN<'ui, 'p> {
-            label: ImStr<'p>,
-            value: &'p mut [f32;$N],
-            decimal_precision: i32,
-            flags: ImGuiInputTextFlags,
-            _phantom: PhantomData<&'ui Ui<'ui>>
-        }
 
-        impl<'ui, 'p> $InputFloatN<'ui, 'p> {
-            pub fn new(label: ImStr<'p>, value: &'p mut [f32;$N]) -> Self {
-                $InputFloatN {
-                    label: label,
-                    value: value,
-                    decimal_precision: -1,
-                    flags: ImGuiInputTextFlags::empty(),
-                    _phantom: PhantomData
-                }
-            }
-
-            pub fn build(self) -> bool {
-                unsafe {
-                    imgui_sys::$igInputFloatN(
-                        self.label.as_ptr(),
-                        self.value.as_mut_ptr(),
-                        self.decimal_precision,
-                        self.flags)
-                }
-            }
-
-            impl_precision_params!($InputFloatN);
-            impl_text_flags!($InputFloatN);
-        }
+pub fn color_edit3<'ui, 'p>(_ui: &'ui Ui, label: ImStr<'p>, value: &'p mut [f32;3]) -> bool {
+    unsafe {
+        imgui_sys::igColorEdit3(
+            label.as_ptr(),
+            value.as_mut_ptr())
     }
 }
 
-impl_input_floatn!(InputFloat2, 2, igInputFloat2);
-impl_input_floatn!(InputFloat3, 3, igInputFloat3);
-impl_input_floatn!(InputFloat4, 4, igInputFloat4);
-
-macro_rules! impl_input_intn {
-    ($InputIntN:ident, $N:expr, $igInputIntN:ident) => {
-        #[must_use]
-        pub struct $InputIntN<'ui, 'p> {
-            label: ImStr<'p>,
-            value: &'p mut [i32;$N],
-            flags: ImGuiInputTextFlags,
-            _phantom: PhantomData<&'ui Ui<'ui>>
-        }
-
-        impl<'ui, 'p> $InputIntN<'ui, 'p> {
-            pub fn new(label: ImStr<'p>, value: &'p mut [i32;$N]) -> Self {
-                $InputIntN {
-                    label: label,
-                    value: value,
-                    flags: ImGuiInputTextFlags::empty(),
-                    _phantom: PhantomData
-                }
-            }
-
-            pub fn build(self) -> bool {
-                unsafe {
-                    imgui_sys::$igInputIntN(
-                        self.label.as_ptr(),
-                        self.value.as_mut_ptr(),
-                        self.flags)
-                }
-            }
-
-            impl_text_flags!($InputIntN);
-        }
-    }
-}
-
-impl_input_intn!(InputInt2, 2, igInputInt2);
-impl_input_intn!(InputInt3, 3, igInputInt3);
-impl_input_intn!(InputInt4, 4, igInputInt4);
-
-#[must_use]
-pub struct ColorEdit3<'ui, 'p> {
-    label: ImStr<'p>,
-    value: &'p mut [f32;3],
-    _phantom: PhantomData<&'ui Ui<'ui>>
-}
-
-impl<'ui, 'p> ColorEdit3<'ui, 'p> {
-    pub fn new(label: ImStr<'p>, value: &'p mut [f32;3]) -> Self {
-        ColorEdit3 {
-            label: label,
-            value: value,
-            _phantom: PhantomData
-        }
-    }
-
-    pub fn build(self) -> bool {
-        unsafe {
-            imgui_sys::igColorEdit3(
-                self.label.as_ptr(),
-                self.value.as_mut_ptr())
-        }
-    }
-}
-
-#[must_use]
-pub struct ColorEdit4<'ui, 'p> {
-    label: ImStr<'p>,
-    value: &'p mut [f32;4],
-    show_alpha: bool,
-    _phantom: PhantomData<&'ui Ui<'ui>>
-}
-
-impl<'ui, 'p> ColorEdit4<'ui, 'p> {
-    pub fn new(label: ImStr<'p>, value: &'p mut [f32;4]) -> Self {
-        ColorEdit4 {
-            label: label,
-            value: value,
-            show_alpha: true,
-            _phantom: PhantomData
-        }
-    }
-
-    pub fn build(self) -> bool {
-        unsafe {
-            imgui_sys::igColorEdit4(
-                self.label.as_ptr(),
-                self.value.as_mut_ptr(),
-                self.show_alpha)
-        }
+pub fn color_edit4<'ui, 'p>(_ui: &'ui Ui, label: ImStr<'p>, value: &'p mut [f32;4], show_alpha: bool) -> bool {
+    unsafe {
+        imgui_sys::igColorEdit4(
+            label.as_ptr(),
+            value.as_mut_ptr(),
+            show_alpha)
     }
 }
