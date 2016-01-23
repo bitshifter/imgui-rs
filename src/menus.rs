@@ -4,34 +4,12 @@ use std::ptr;
 
 use super::{Ui, ImStr};
 
-#[must_use]
-pub struct Menu<'ui, 'p> {
-    label: ImStr<'p>,
-    enabled: bool,
-    _phantom: PhantomData<&'ui Ui<'ui>>
-}
-
-impl<'ui, 'p> Menu<'ui, 'p> {
-    pub fn new(label: ImStr<'p>) -> Self {
-        Menu {
-            label: label,
-            enabled: true,
-            _phantom: PhantomData
-        }
-    }
-    #[inline]
-    pub fn enabled(self, enabled: bool) -> Self {
-        Menu {
-            enabled: enabled,
-            .. self
-        }
-    }
-    pub fn build<F: FnOnce()>(self, f: F) {
-        let render = unsafe { imgui_sys::igBeginMenu(self.label.as_ptr(), self.enabled) };
-        if render {
-            f();
-            unsafe { imgui_sys::igEndMenu() };
-        }
+#[inline]
+pub fn menu<'ui, 'p, F: FnOnce()>(_ui: &'ui Ui, label: ImStr<'p>, enabled: bool, f: F) {
+    let render = unsafe { imgui_sys::igBeginMenu(label.as_ptr(), enabled) };
+    if render {
+        f();
+        unsafe { imgui_sys::igEndMenu() };
     }
 }
 

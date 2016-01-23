@@ -46,7 +46,7 @@ pub use input::{
 	InputIntOptions,
 	InputTextOptions
 };
-pub use menus::{Menu, MenuItem};
+pub use menus::{menu, MenuItem};
 pub use sliders::{SliderFloat, SliderInt};
 pub use trees::{TreeNode};
 pub use widgets::{CollapsingHeader};
@@ -553,8 +553,21 @@ impl<'ui> Ui<'ui> {
             unsafe { imgui_sys::igEndMenuBar() };
         }
     }
-    pub fn menu<'p>(&self, label: ImStr<'p>) -> Menu<'ui, 'p> { Menu::new(label) }
-    pub fn menu_item<'p>(&self, label: ImStr<'p>) -> MenuItem<'ui, 'p> { MenuItem::new(label) }
+    pub fn menu<'p, F>(&self, label: ImStr<'p>, f: F) where F: FnOnce() {
+        ::menu(self, label, true, f)
+    }
+    pub fn menu_disabled<'p, F>(&self, label: ImStr<'p>, f: F) where F: FnOnce() {
+        ::menu(self, label, false, f)
+    }
+    pub fn menu_item<'p>(&self, label: ImStr<'p>, selected: Option<&'p mut bool>) -> bool {
+        match selected {
+            Some(selected) => MenuItem::new(label).selected(selected).build(),
+            None => MenuItem::new(label).build()
+        }
+    }
+    pub fn menu_item_with<'p>(&self, label: ImStr<'p>) -> MenuItem<'ui, 'p> {
+        MenuItem::new(label)
+    }
 }
 
 // Widgets: Popups
