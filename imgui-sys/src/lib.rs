@@ -979,7 +979,7 @@ extern "C" {
     pub fn igSelectableEx(label: ImStr, p_selected: *mut bool,
                           flags: ImGuiSelectableFlags, size: ImVec2) -> bool;
     pub fn igListBox(label: ImStr, current_item: *mut c_int,
-                     items: *mut ImStr, items_count: c_int,
+                     items: *const ImStr, items_count: c_int,
                      height_in_items: c_int) -> bool;
     pub fn igListBox2(label: ImStr, current_item: *mut c_int,
                       items_getter: extern "C" fn(data: *mut c_void,
