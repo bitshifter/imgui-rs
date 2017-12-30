@@ -1,5 +1,6 @@
-*~
 *.swp
-target
+*~
+.vscode/
 Cargo.lock
 imgui.ini
+target
