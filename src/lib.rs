@@ -464,7 +464,10 @@ impl<'ui> Ui<'ui> {
             sys::igBulletText1(sys::ImStr::from(text));
         }
     }
-    pub fn button<'p, S: Into<ImVec2>>(&self, label: &'p str, size: S) -> bool {
+    pub fn button<'p>(&self, label: &'p str) -> bool {
+        unsafe { sys::igButton(sys::ImStr::from(label), ImVec2::zero()) }
+    }
+    pub fn button_with_size<'p, S: Into<ImVec2>>(&self, label: &'p str, size: S) -> bool {
         unsafe { sys::igButton(sys::ImStr::from(label), size.into()) }
     }
     pub fn small_button<'p>(&self, label: &'p str) -> bool {
