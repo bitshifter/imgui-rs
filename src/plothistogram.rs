@@ -1,7 +1,7 @@
-use sys;
-use std::{f32, mem};
 use std::marker::PhantomData;
 use std::os::raw::c_float;
+use std::{f32, mem};
+use sys;
 
 use super::{ImVec2, Ui};
 
@@ -20,8 +20,8 @@ pub struct PlotHistogram<'ui, 'p> {
 impl<'ui, 'p> PlotHistogram<'ui, 'p> {
     pub fn new(_: &Ui<'ui>, label: &'p str, values: &'p [f32]) -> Self {
         PlotHistogram {
-            label: label,
-            values: values,
+            label,
+            values,
             values_offset: 0usize,
             overlay_text: None,
             scale_min: f32::MAX,

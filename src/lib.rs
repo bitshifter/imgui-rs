@@ -2,33 +2,49 @@ pub extern crate imgui_sys as sys;
 
 use std::ffi::CStr;
 use std::mem;
-use std::os::raw::{c_float, c_int, c_uchar, c_void};
+use std::os::raw::{c_char, c_float, c_int, c_uchar, c_void};
 use std::ptr;
 use std::slice;
 use std::str;
 use sys::ImGuiStyleVar;
 
-pub use sys::{ImDrawIdx, ImDrawVert, ImGuiColorEditFlags, ImGuiHoveredFlags, ImGuiInputTextFlags,
-              ImGuiKey, ImGuiSelectableFlags, ImGuiCond, ImGuiCol, ImGuiStyle, ImGuiTreeNodeFlags,
-              ImGuiWindowFlags, ImVec2, ImVec4};
 pub use child_frame::ChildFrame;
-pub use color_editors::{ColorButton, ColorEdit, ColorEditMode, ColorFormat, ColorPicker,
-                        ColorPickerMode, ColorPreview, EditableColor};
-pub use input::{InputFloat, InputFloat2, InputFloat3, InputFloat4, InputInt, InputInt2, InputInt3,
-                InputInt4, InputText};
+pub use color_editors::{
+    ColorButton, ColorEdit, ColorEditMode, ColorFormat, ColorPicker, ColorPickerMode, ColorPreview,
+    EditableColor,
+};
+pub use drag::{
+    DragFloat, DragFloat2, DragFloat3, DragFloat4, DragFloatRange2, DragInt, DragInt2, DragInt3,
+    DragInt4, DragIntRange2,
+};
+pub use fonts::{FontGlyphRange, ImFont, ImFontAtlas, ImFontConfig};
+pub use input::{
+    InputFloat, InputFloat2, InputFloat3, InputFloat4, InputInt, InputInt2, InputInt3, InputInt4,
+    InputText, InputTextMultiline,
+};
 pub use menus::{Menu, MenuItem};
 pub use plothistogram::PlotHistogram;
 pub use plotlines::PlotLines;
 pub use progressbar::ProgressBar;
-pub use sliders::{SliderFloat, SliderFloat2, SliderFloat3, SliderFloat4, SliderInt, SliderInt2,
-                  SliderInt3, SliderInt4};
+pub use sliders::{
+    SliderFloat, SliderFloat2, SliderFloat3, SliderFloat4, SliderInt, SliderInt2, SliderInt3,
+    SliderInt4,
+};
 pub use string::ImString;
 pub use style::StyleVar;
+pub use sys::{
+    ImDrawIdx, ImDrawVert, ImGuiCol, ImGuiColorEditFlags, ImGuiCond, ImGuiHoveredFlags,
+    ImGuiInputTextFlags, ImGuiKey, ImGuiMouseCursor, ImGuiSelectableFlags, ImGuiStyle,
+    ImGuiTreeNodeFlags, ImGuiWindowFlags, ImVec2, ImVec4,
+};
 pub use trees::{CollapsingHeader, TreeNode};
 pub use window::Window;
+pub use window_draw_list::{ChannelsSplit, ImColor, WindowDrawList};
 
 mod child_frame;
 mod color_editors;
+mod drag;
+mod fonts;
 mod input;
 mod menus;
 mod plothistogram;
@@ -39,6 +55,7 @@ mod string;
 mod style;
 mod trees;
 mod window;
+mod window_draw_list;
 
 pub struct ImGui {
     // We need to keep ownership of the ImStr values to ensure the *const char pointer
@@ -67,6 +84,31 @@ pub fn get_version() -> &'static str {
     }
 }
 
+/// Represents one of the buttons of the mouse
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum ImMouseButton {
+    Left = 0,
+    Right = 1,
+    Middle = 2,
+    Extra1 = 3,
+    Extra2 = 4,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct FrameSize {
+    pub logical_size: (f64, f64),
+    pub hidpi_factor: f64,
+}
+
+impl FrameSize {
+    pub fn new(width: f64, height: f64, hidpi_factor: f64) -> FrameSize {
+        FrameSize {
+            logical_size: (width, height),
+            hidpi_factor,
+        }
+    }
+}
+
 impl ImGui {
     pub fn init() -> ImGui {
         ImGui {
@@ -74,10 +116,21 @@ impl ImGui {
             log_filename: None,
         }
     }
-    fn io(&self) -> &sys::ImGuiIO { unsafe { &*sys::igGetIO() } }
-    fn io_mut(&mut self) -> &mut sys::ImGuiIO { unsafe { &mut *sys::igGetIO() } }
-    pub fn style(&self) -> &ImGuiStyle { unsafe { &*sys::igGetStyle() } }
-    pub fn style_mut(&mut self) -> &mut ImGuiStyle { unsafe { &mut *sys::igGetStyle() } }
+    fn io(&self) -> &sys::ImGuiIO {
+        unsafe { &*sys::igGetIO() }
+    }
+    fn io_mut(&mut self) -> &mut sys::ImGuiIO {
+        unsafe { &mut *sys::igGetIO() }
+    }
+    pub fn style(&self) -> &ImGuiStyle {
+        unsafe { &*sys::igGetStyle() }
+    }
+    pub fn style_mut(&mut self) -> &mut ImGuiStyle {
+        unsafe { &mut *sys::igGetStyle() }
+    }
+    pub fn fonts(&mut self) -> ImFontAtlas {
+        unsafe { ImFontAtlas::from_ptr(self.io_mut().fonts) }
+    }
     pub fn prepare_texture<'a, F, T>(&mut self, f: F) -> T
     where
         F: FnOnce(TextureHandle<'a>) -> T,
@@ -103,9 +156,7 @@ impl ImGui {
         }
     }
     pub fn set_texture_id(&mut self, value: usize) {
-        unsafe {
-            (*self.io_mut().fonts).tex_id = value as *mut c_void;
-        }
+        self.fonts().set_texture_id(value);
     }
     pub fn set_ini_filename(&mut self, value: Option<ImString>) {
         {
@@ -175,25 +226,87 @@ impl ImGui {
         io.mouse_pos.x = x;
         io.mouse_pos.y = y;
     }
-    pub fn set_mouse_down(&mut self, states: &[bool; 5]) {
+    /// Get mouse's position's delta between the current and the last frame.
+    pub fn mouse_delta(&self) -> (f32, f32) {
+        let io = self.io();
+        (io.mouse_delta.x, io.mouse_delta.y)
+    }
+    pub fn set_mouse_down(&mut self, states: [bool; 5]) {
         let io = self.io_mut();
-        io.mouse_down = *states;
+        io.mouse_down = states;
     }
     pub fn set_mouse_wheel(&mut self, value: f32) {
         let io = self.io_mut();
         io.mouse_wheel = value;
     }
+    /// Get mouse wheel delta
+    pub fn mouse_wheel(&self) -> f32 {
+        let io = self.io();
+        io.mouse_wheel
+    }
+    /// Set to `true` to have ImGui draw the cursor in software.
+    /// If `false`, the OS cursor is used (default to `false`).
     pub fn set_mouse_draw_cursor(&mut self, value: bool) {
         let io = self.io_mut();
         io.mouse_draw_cursor = value;
+    }
+    pub fn mouse_draw_cursor(&self) -> bool {
+        let io = self.io();
+        io.mouse_draw_cursor
+    }
+    /// Set currently displayed cursor.
+    /// Requires support in the windowing back-end if OS cursor is used.
+    /// OS cursor is used if `mouse_draw_cursor` is set to `false` with
+    /// [set_mouse_draw_cursor](#method.set_mouse_draw_cursor).
+    pub fn set_mouse_cursor(&self, cursor: ImGuiMouseCursor) {
+        unsafe {
+            sys::igSetMouseCursor(cursor);
+        }
+    }
+    /// Get currently displayed cursor.
+    pub fn mouse_cursor(&self) -> ImGuiMouseCursor {
+        unsafe { sys::igGetMouseCursor() }
+    }
+    /// Returns `true` if mouse is currently dragging with the `button` provided
+    /// as argument.
+    pub fn is_mouse_dragging(&self, button: ImMouseButton) -> bool {
+        unsafe { sys::igIsMouseDragging(button as c_int, -1.0) }
+    }
+    /// Returns `true` if the `button` provided as argument is currently down.
+    pub fn is_mouse_down(&self, button: ImMouseButton) -> bool {
+        unsafe { sys::igIsMouseDown(button as c_int) }
+    }
+    /// Returns `true` if the `button` provided as argument is being clicked.
+    pub fn is_mouse_clicked(&self, button: ImMouseButton) -> bool {
+        unsafe { sys::igIsMouseClicked(button as c_int, false) }
+    }
+    /// Returns `true` if the `button` provided as argument is being double-clicked.
+    pub fn is_mouse_double_clicked(&self, button: ImMouseButton) -> bool {
+        unsafe { sys::igIsMouseDoubleClicked(button as c_int) }
+    }
+    /// Returns `true` if the `button` provided as argument was released
+    pub fn is_mouse_released(&self, button: ImMouseButton) -> bool {
+        unsafe { sys::igIsMouseReleased(button as c_int) }
+    }
+    pub fn key_ctrl(&self) -> bool {
+        let io = self.io();
+        io.key_ctrl
     }
     pub fn set_key_ctrl(&mut self, value: bool) {
         let io = self.io_mut();
         io.key_ctrl = value;
     }
+    pub fn key_shift(&self) -> bool {
+        let io = self.io();
+        io.key_shift
+    }
     pub fn set_key_shift(&mut self, value: bool) {
         let io = self.io_mut();
         io.key_shift = value;
+    }
+    pub fn key_alt(&self) -> bool {
+        let io = self.io();
+        io.key_alt
     }
     pub fn set_key_alt(&mut self, value: bool) {
         let io = self.io_mut();
@@ -209,7 +322,36 @@ impl ImGui {
     }
     pub fn set_imgui_key(&mut self, key: ImGuiKey, mapping: u8) {
         let io = self.io_mut();
-        io.key_map[key as usize] = mapping as i32;
+        io.key_map[key as usize] = i32::from(mapping);
+    }
+    /// Map [`ImGuiKey`] values into user's key index
+    pub fn get_key_index(&self, key: ImGuiKey) -> usize {
+        unsafe { sys::igGetKeyIndex(key) as usize }
+    }
+    /// Return whether specific key is being held
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use imgui::{ImGuiKey, Ui};
+    ///
+    /// fn test(ui: &Ui) {
+    ///     let delete_key_index = ui.imgui().get_key_index(ImGuiKey::Delete);
+    ///     if ui.imgui().is_key_down(delete_key_index) {
+    ///         println!("Delete is being held!");
+    ///     }
+    /// }
+    /// ```
+    pub fn is_key_down(&self, user_key_index: usize) -> bool {
+        unsafe { sys::igIsKeyDown(user_key_index as c_int) }
+    }
+    /// Return whether specific key was pressed
+    pub fn is_key_pressed(&self, user_key_index: usize) -> bool {
+        unsafe { sys::igIsKeyPressed(user_key_index as c_int, true) }
+    }
+    /// Return whether specific key was released
+    pub fn is_key_released(&self, user_key_index: usize) -> bool {
+        unsafe { sys::igIsKeyReleased(user_key_index as c_int) }
     }
     pub fn add_input_character(&mut self, character: char) {
         let mut buf = [0; 5];
@@ -218,36 +360,35 @@ impl ImGui {
                 sys::ImStr::from(character.encode_utf8(&mut buf) as &str));
         }
     }
-    pub fn get_time(&self) -> f32 { unsafe { sys::igGetTime() } }
-    pub fn get_frame_count(&self) -> i32 { unsafe { sys::igGetFrameCount() } }
-    pub fn get_frame_rate(&self) -> f32 { self.io().framerate }
-    pub fn frame<'ui, 'a: 'ui>(
-        &'a mut self,
-        size_points: (u32, u32),
-        size_pixels: (u32, u32),
-        delta_time: f32,
-    ) -> Ui<'ui> {
+    pub fn get_time(&self) -> f32 {
+        unsafe { sys::igGetTime() }
+    }
+    pub fn get_frame_count(&self) -> i32 {
+        unsafe { sys::igGetFrameCount() }
+    }
+    pub fn get_frame_rate(&self) -> f32 {
+        self.io().framerate
+    }
+    pub fn frame<'ui, 'a: 'ui>(&'a mut self, frame_size: FrameSize, delta_time: f32) -> Ui<'ui> {
         {
             let io = self.io_mut();
-            io.display_size.x = size_points.0 as c_float;
-            io.display_size.y = size_points.1 as c_float;
-            io.display_framebuffer_scale.x = if size_points.0 > 0 {
-                size_pixels.0 as c_float / size_points.0 as c_float
-            } else {
-                0.0
-            };
-            io.display_framebuffer_scale.y = if size_points.1 > 0 {
-                size_pixels.1 as c_float / size_points.1 as c_float
-            } else {
-                0.0
-            };
+            io.display_size.x = frame_size.logical_size.0 as c_float;
+            io.display_size.y = frame_size.logical_size.1 as c_float;
+            io.display_framebuffer_scale.x = frame_size.hidpi_factor as c_float;
+            io.display_framebuffer_scale.y = frame_size.hidpi_factor as c_float;
             io.delta_time = delta_time;
         }
         unsafe {
             sys::igNewFrame();
-            CURRENT_UI = Some(Ui { imgui: mem::transmute(self as &'a ImGui) });
+            CURRENT_UI = Some(Ui {
+                imgui: mem::transmute(self as &'a ImGui),
+                frame_size,
+            });
         }
-        Ui { imgui: self }
+        Ui {
+            imgui: self,
+            frame_size,
+        }
     }
 }
 
@@ -262,6 +403,66 @@ impl Drop for ImGui {
 
 static mut CURRENT_UI: Option<Ui<'static>> = None;
 
+pub struct DrawData<'a> {
+    raw: &'a mut sys::ImDrawData,
+}
+
+impl<'a> DrawData<'a> {
+    pub fn is_valid(&self) -> bool {
+        self.raw.valid
+    }
+    pub fn draw_list_count(&self) -> usize {
+        self.raw.cmd_lists_count as usize
+    }
+    pub fn total_vtx_count(&self) -> usize {
+        self.raw.total_vtx_count as usize
+    }
+    pub fn total_idx_count(&self) -> usize {
+        self.raw.total_idx_count as usize
+    }
+    pub fn deindex_all_buffers(&mut self) {
+        unsafe {
+            sys::ImDrawData_DeIndexAllBuffers(self.raw);
+        }
+    }
+    pub fn scale_clip_rects<S: Into<ImVec2>>(&mut self, sc: S) {
+        unsafe {
+            sys::ImDrawData_ScaleClipRects(self.raw, sc.into());
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a DrawData<'a> {
+    type Item = DrawList<'a>;
+    type IntoIter = DrawListIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        unsafe {
+            DrawListIterator {
+                iter: self.raw.cmd_lists().iter(),
+            }
+        }
+    }
+}
+
+pub struct DrawListIterator<'a> {
+    iter: std::slice::Iter<'a, *const sys::ImDrawList>,
+}
+
+impl<'a> Iterator for DrawListIterator<'a> {
+    type Item = DrawList<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|&ptr| unsafe {
+            DrawList {
+                cmd_buffer: (*ptr).cmd_buffer.as_slice(),
+                idx_buffer: (*ptr).idx_buffer.as_slice(),
+                vtx_buffer: (*ptr).vtx_buffer.as_slice(),
+            }
+        })
+    }
+}
+
 pub struct DrawList<'a> {
     pub cmd_buffer: &'a [sys::ImDrawCmd],
     pub idx_buffer: &'a [sys::ImDrawIdx],
@@ -270,10 +471,22 @@ pub struct DrawList<'a> {
 
 pub struct Ui<'ui> {
     imgui: &'ui ImGui,
+    frame_size: FrameSize,
+}
+
+static FMT: &'static [u8] = b"%s\0";
+
+fn fmt_ptr() -> *const c_char {
+    FMT.as_ptr() as *const c_char
 }
 
 impl<'ui> Ui<'ui> {
-    pub fn imgui(&self) -> &ImGui { self.imgui }
+    pub fn frame_size(&self) -> FrameSize {
+        self.frame_size
+    }
+    pub fn imgui(&self) -> &ImGui {
+        self.imgui
+    }
     pub fn want_capture_mouse(&self) -> bool {
         let io = self.imgui.io();
         io.want_capture_mouse
@@ -302,36 +515,35 @@ impl<'ui> Ui<'ui> {
         let io = self.imgui.io();
         io.metrics_active_windows
     }
-    pub fn render<F, E>(self, mut f: F) -> Result<(), E>
+    pub fn render<F, E>(self, f: F) -> Result<(), E>
     where
-        F: FnMut(&Ui, DrawList) -> Result<(), E>,
+        F: FnOnce(&Ui, DrawData) -> Result<(), E>,
     {
         unsafe {
             sys::igRender();
 
-            let draw_data = sys::igGetDrawData();
-            for &cmd_list in (*draw_data).cmd_lists() {
-                let draw_list = DrawList {
-                    cmd_buffer: (*cmd_list).cmd_buffer.as_slice(),
-                    idx_buffer: (*cmd_list).idx_buffer.as_slice(),
-                    vtx_buffer: (*cmd_list).vtx_buffer.as_slice(),
-                };
-                try!(f(&self, draw_list));
-            }
+            let draw_data = DrawData {
+                raw: &mut *sys::igGetDrawData(),
+            };
+            f(&self, draw_data)?;
             CURRENT_UI = None;
         }
         Ok(())
     }
-    pub fn show_user_guide(&self) { unsafe { sys::igShowUserGuide() }; }
-    pub fn show_default_style_editor(&self) { unsafe { sys::igShowStyleEditor(ptr::null_mut()) }; }
+    pub fn show_user_guide(&self) {
+        unsafe { sys::igShowUserGuide() };
+    }
+    pub fn show_default_style_editor(&self) {
+        unsafe { sys::igShowStyleEditor(ptr::null_mut()) };
+    }
     pub fn show_style_editor<'p>(&self, style: &'p mut ImGuiStyle) {
         unsafe {
             sys::igShowStyleEditor(style as *mut ImGuiStyle);
         }
     }
-    pub fn show_test_window(&self, opened: &mut bool) {
+    pub fn show_demo_window(&self, opened: &mut bool) {
         unsafe {
-            sys::igShowTestWindow(opened);
+            sys::igShowDemoWindow(opened);
         }
     }
     pub fn show_metrics_window(&self, opened: &mut bool) {
@@ -342,24 +554,40 @@ impl<'ui> Ui<'ui> {
 }
 
 impl<'a> Ui<'a> {
-    pub unsafe fn current_ui() -> Option<&'a Ui<'a>> { CURRENT_UI.as_ref() }
+    pub unsafe fn current_ui() -> Option<&'a Ui<'a>> {
+        CURRENT_UI.as_ref()
+    }
 }
 
 // Window
 impl<'ui> Ui<'ui> {
-    pub fn window<'p>(&self, name: &'p str) -> Window<'ui, 'p> { Window::new(self, name) }
+    pub fn window<'p>(&self, name: &'p str) -> Window<'ui, 'p> {
+        Window::new(self, name)
+    }
+    /// Get current window's size in pixels
+    pub fn get_window_size(&self) -> (f32, f32) {
+        let mut out = ImVec2::new(0.0, 0.0);
+        unsafe {
+            sys::igGetWindowSize(&mut out as *mut ImVec2);
+        }
+        (out.x, out.y)
+    }
 }
 
 // Layout
 impl<'ui> Ui<'ui> {
     /// Pushes a value to the item width stack.
-    pub fn push_item_width(&self, width: f32) { unsafe { sys::igPushItemWidth(width) } }
+    pub fn push_item_width(&self, width: f32) {
+        unsafe { sys::igPushItemWidth(width) }
+    }
 
     /// Pops a value from the item width stack.
     ///
     /// # Aborts
     /// The current process is aborted if the item width stack is empty.
-    pub fn pop_item_width(&self) { unsafe { sys::igPopItemWidth() } }
+    pub fn pop_item_width(&self) {
+        unsafe { sys::igPopItemWidth() }
+    }
 
     /// Runs a function after temporarily pushing a value to the item width stack.
     pub fn with_item_width<F>(&self, width: f32, f: F)
@@ -371,21 +599,33 @@ impl<'ui> Ui<'ui> {
         self.pop_item_width();
     }
 
-    pub fn separator(&self) { unsafe { sys::igSeparator() }; }
-    pub fn new_line(&self) { unsafe { sys::igNewLine() } }
-    pub fn same_line(&self, pos_x: f32) { unsafe { sys::igSameLine(pos_x, -1.0f32) } }
+    pub fn separator(&self) {
+        unsafe { sys::igSeparator() };
+    }
+    pub fn new_line(&self) {
+        unsafe { sys::igNewLine() }
+    }
+    pub fn same_line(&self, pos_x: f32) {
+        unsafe { sys::igSameLine(pos_x, -1.0f32) }
+    }
     pub fn same_line_spacing(&self, pos_x: f32, spacing_w: f32) {
         unsafe { sys::igSameLine(pos_x, spacing_w) }
     }
-    pub fn spacing(&self) { unsafe { sys::igSpacing() }; }
+    pub fn spacing(&self) {
+        unsafe { sys::igSpacing() };
+    }
 
     pub fn columns<'p>(&self, count: i32, id: &'p str, border: bool) {
         unsafe { sys::igColumns(count, sys::ImStr::from(id), border) }
     }
 
-    pub fn next_column(&self) { unsafe { sys::igNextColumn() } }
+    pub fn next_column(&self) {
+        unsafe { sys::igNextColumn() }
+    }
 
-    pub fn get_column_index(&self) -> i32 { unsafe { sys::igGetColumnIndex() } }
+    pub fn get_column_index(&self) -> i32 {
+        unsafe { sys::igGetColumnIndex() }
+    }
 
     pub fn get_column_offset(&self, column_index: i32) -> f32 {
         unsafe { sys::igGetColumnOffset(column_index) }
@@ -399,24 +639,128 @@ impl<'ui> Ui<'ui> {
         unsafe { sys::igGetColumnWidth(column_index) }
     }
 
-    pub fn get_columns_count(&self) -> i32 { unsafe { sys::igGetColumnsCount() } }
+    pub fn get_columns_count(&self) -> i32 {
+        unsafe { sys::igGetColumnsCount() }
+    }
+
+    /// Fill a space of `size` in pixels with nothing on the current window.
+    /// Can be used to move the cursor on the window.
+    pub fn dummy<S: Into<ImVec2>>(&self, size: S) {
+        let size = size.into();
+        unsafe { sys::igDummy(&size) }
+    }
+
+    /// Get cursor position on the screen, in screen coordinates.
+    /// This sets the point on which the next widget will be drawn.
+    ///
+    /// This is especially useful for drawing, as the drawing API uses
+    /// screen coordiantes.
+    pub fn get_cursor_screen_pos(&self) -> (f32, f32) {
+        let mut out = ImVec2::new(0.0, 0.0);
+        unsafe {
+            sys::igGetCursorScreenPos(&mut out);
+        }
+        (out.x, out.y)
+    }
+
+    /// Set cursor position on the screen, in screen coordinates.
+    /// This sets the point on which the next widget will be drawn.
+    pub fn set_cursor_screen_pos<P: Into<ImVec2>>(&self, pos: P) {
+        unsafe { sys::igSetCursorScreenPos(pos.into()) }
+    }
+
+    /// Get cursor position on the screen, in window coordinates.
+    pub fn get_cursor_pos(&self) -> (f32, f32) {
+        let mut out = ImVec2::new(0.0, 0.0);
+        unsafe {
+            sys::igGetCursorPos(&mut out);
+        }
+        (out.x, out.y)
+    }
+
+    /// Set cursor position on the screen, in window coordinates.
+    /// This sets the point on which the next widget will be drawn.
+    pub fn set_cursor_pos<P: Into<ImVec2>>(&self, pos: P) {
+        unsafe { sys::igSetCursorPos(pos.into()) }
+    }
+
+    /// Get available space left between the cursor and the edges of the current
+    /// window.
+    pub fn get_content_region_avail(&self) -> (f32, f32) {
+        let mut out = ImVec2::new(0.0, 0.0);
+        unsafe {
+            sys::igGetContentRegionAvail(&mut out);
+        }
+        (out.x, out.y)
+    }
+}
+
+pub enum ImId<'a> {
+    Int(i32),
+    Str(&'a str),
+    Ptr(*const c_void),
+}
+
+impl From<i32> for ImId<'static> {
+    fn from(i: i32) -> Self {
+        ImId::Int(i)
+    }
+}
+
+impl<'a, T: ?Sized + AsRef<str>> From<&'a T> for ImId<'a> {
+    fn from(s: &'a T) -> Self {
+        ImId::Str(s.as_ref())
+    }
+}
+
+impl<T> From<*const T> for ImId<'static> {
+    fn from(p: *const T) -> Self {
+        ImId::Ptr(p as *const c_void)
+    }
+}
+
+impl<T> From<*mut T> for ImId<'static> {
+    fn from(p: *mut T) -> Self {
+        ImId::Ptr(p as *const T as *const c_void)
+    }
 }
 
 // ID scopes
 impl<'ui> Ui<'ui> {
     /// Pushes an identifier to the ID stack.
-    pub fn push_id(&self, id: i32) { unsafe { sys::igPushIDInt(id) }; }
+    pub fn push_id<'a, I: Into<ImId<'a>>>(&self, id: I) {
+        let id = id.into();
+
+        unsafe {
+            match id {
+                ImId::Int(i) => {
+                    sys::igPushIDInt(i);
+                }
+                ImId::Str(s) => {
+                    let start = s.as_ptr() as *const c_char;
+                    let end = start.offset(s.len() as isize);
+                    sys::igPushIDStrRange(start, end);
+                }
+                ImId::Ptr(p) => {
+                    sys::igPushIDPtr(p as *const c_void);
+                }
+            }
+        }
+    }
 
     /// Pops an identifier from the ID stack.
     ///
     /// # Aborts
     /// The current process is aborted if the ID stack is empty.
-    pub fn pop_id(&self) { unsafe { sys::igPopID() }; }
+    pub fn pop_id(&self) {
+        unsafe { sys::igPopID() };
+    }
 
     /// Runs a function after temporarily pushing a value to the ID stack.
-    pub fn with_id<F>(&self, id: i32, f: F)
+    pub fn with_id<'a, F, I>(&self, id: I, f: F)
     where
         F: FnOnce(),
+        I: Into<ImId<'a>>,
     {
         self.push_id(id);
         f();
@@ -470,6 +814,11 @@ impl<'ui> Ui<'ui> {
     pub fn small_button<'p>(&self, label: &'p str) -> bool {
         unsafe { sys::igSmallButton(sys::ImStr::from(label)) }
     }
+    /// Make a invisible event. Can be used to conveniently catch events when
+    /// mouse hovers or click the area covered by this invisible button.
+    pub fn invisible_button<'p, S: Into<ImVec2>>(&self, label: &'p str, size: S) -> bool {
+        unsafe { sys::igInvisibleButton(sys::ImStr::from(label), size.into()) }
+    }
     pub fn checkbox<'p>(&self, label: &'p str, value: &'p mut bool) -> bool {
         unsafe { sys::igCheckbox(sys::ImStr::from(label), value) }
     }
@@ -479,6 +828,14 @@ impl<'ui> Ui<'ui> {
 impl<'ui> Ui<'ui> {
     pub fn input_text<'p>(&self, label: &'p str, buf: &'p mut ImString) -> InputText<'ui, 'p> {
         InputText::new(self, label, buf)
+    }
+    pub fn input_text_multiline<'p, S: Into<ImVec2>>(
+        &self,
+        label: &'p str,
+        buf: &'p mut ImString,
+        size: S,
+    ) -> InputTextMultiline<'ui, 'p> {
+        InputTextMultiline::new(self, label, buf, size.into())
     }
     pub fn input_float<'p>(&self, label: &'p str, value: &'p mut f32) -> InputFloat<'ui, 'p> {
         InputFloat::new(self, label, value)
@@ -515,6 +872,62 @@ impl<'ui> Ui<'ui> {
     }
     pub fn input_int4<'p>(&self, label: &'p str, value: &'p mut [i32; 4]) -> InputInt4<'ui, 'p> {
         InputInt4::new(self, label, value)
+    }
+}
+
+// Widgets: Drag
+impl<'ui> Ui<'ui> {
+    pub fn drag_float<'p>(&self, label: &'p str, value: &'p mut f32) -> DragFloat<'ui, 'p> {
+        DragFloat::new(self, label, value)
+    }
+    pub fn drag_float2<'p>(
+        &self,
+        label: &'p str,
+        value: &'p mut [f32; 2],
+    ) -> DragFloat2<'ui, 'p> {
+        DragFloat2::new(self, label, value)
+    }
+    pub fn drag_float3<'p>(
+        &self,
+        label: &'p str,
+        value: &'p mut [f32; 3],
+    ) -> DragFloat3<'ui, 'p> {
+        DragFloat3::new(self, label, value)
+    }
+    pub fn drag_float4<'p>(
+        &self,
+        label: &'p str,
+        value: &'p mut [f32; 4],
+    ) -> DragFloat4<'ui, 'p> {
+        DragFloat4::new(self, label, value)
+    }
+    pub fn drag_float_range2<'p>(
+        &self,
+        label: &'p str,
+        current_min: &'p mut f32,
+        current_max: &'p mut f32,
+    ) -> DragFloatRange2<'ui, 'p> {
+        DragFloatRange2::new(self, label, current_min, current_max)
+    }
+    pub fn drag_int<'p>(&self, label: &'p str, value: &'p mut i32) -> DragInt<'ui, 'p> {
+        DragInt::new(self, label, value)
+    }
+    pub fn drag_int2<'p>(&self, label: &'p str, value: &'p mut [i32; 2]) -> DragInt2<'ui, 'p> {
+        DragInt2::new(self, label, value)
+    }
+    pub fn drag_int3<'p>(&self, label: &'p str, value: &'p mut [i32; 3]) -> DragInt3<'ui, 'p> {
+        DragInt3::new(self, label, value)
+    }
+    pub fn drag_int4<'p>(&self, label: &'p str, value: &'p mut [i32; 4]) -> DragInt4<'ui, 'p> {
+        DragInt4::new(self, label, value)
+    }
+    pub fn drag_int_range2<'p>(
+        &self,
+        label: &'p str,
+        current_min: &'p mut i32,
+        current_max: &'p mut i32,
+    ) -> DragIntRange2<'ui, 'p> {
+        DragIntRange2::new(self, label, current_min, current_max)
     }
 }
 
@@ -632,7 +1045,9 @@ impl<'ui> Ui<'ui> {
 
 // Widgets: Trees
 impl<'ui> Ui<'ui> {
-    pub fn tree_node<'p>(&self, id: &'p str) -> TreeNode<'ui, 'p> { TreeNode::new(self, id) }
+    pub fn tree_node<'p>(&self, id: &'p str) -> TreeNode<'ui, 'p> {
+        TreeNode::new(self, id)
+    }
     pub fn collapsing_header<'p>(&self, label: &'p str) -> CollapsingHeader<'ui, 'p> {
         CollapsingHeader::new(self, label)
     }
@@ -696,7 +1111,9 @@ impl<'ui> Ui<'ui> {
     /// # fn main() {
     /// # }
     /// ```
-    pub fn tooltip_text(&self, text: &str) { self.tooltip(|| self.text(text)); }
+    pub fn tooltip_text(&self, text: &str) {
+        self.tooltip(|| self.text(text));
+    }
 }
 
 // Widgets: Menus
@@ -721,7 +1138,9 @@ impl<'ui> Ui<'ui> {
             unsafe { sys::igEndMenuBar() };
         }
     }
-    pub fn menu<'p>(&self, label: &'p str) -> Menu<'ui, 'p> { Menu::new(self, label) }
+    pub fn menu<'p>(&self, label: &'p str) -> Menu<'ui, 'p> {
+        Menu::new(self, label)
+    }
     pub fn menu_item<'p>(&self, label: &'p str) -> MenuItem<'ui, 'p> {
         MenuItem::new(self, label)
     }
@@ -742,7 +1161,9 @@ impl<'ui> Ui<'ui> {
             unsafe { sys::igEndPopup() };
         }
     }
-    pub fn close_current_popup(&self) { unsafe { sys::igCloseCurrentPopup() }; }
+    pub fn close_current_popup(&self) {
+        unsafe { sys::igCloseCurrentPopup() };
+    }
 }
 
 // Widgets: Combos
@@ -798,7 +1219,7 @@ impl<'ui> Ui<'ui> {
     /// ```rust,no_run
     /// # use imgui::*;
     /// # let mut imgui = ImGui::init();
-    /// # let ui = imgui.frame((0, 0), (0, 0), 0.1);
+    /// # let ui = imgui.frame(FrameSize::new(100.0, 100.0, 1.0), 0.1);
     /// # let mut selected_radio_value = 2;
     /// ui.radio_button("Item 1", &mut selected_radio_value, 1);
     /// ui.radio_button("Item 2", &mut selected_radio_value, 2);
@@ -815,7 +1236,7 @@ impl<'ui> Ui<'ui> {
     /// ```rust,no_run
     /// # use imgui::*;
     /// # let mut imgui = ImGui::init();
-    /// # let ui = imgui.frame((0, 0), (0, 0), 0.1);
+    /// # let ui = imgui.frame(FrameSize::new(100.0, 100.0, 1.0), 0.1);
     /// # let mut radio_button_test = "cats".to_string();
     /// if ui.radio_button_bool("Cats", radio_button_test == "cats") {
     ///     radio_button_test = "cats".to_string();
@@ -872,13 +1293,28 @@ impl<'ui> Ui<'ui> {
 }
 
 impl<'ui> Ui<'ui> {
+    /// Get height of a line of previously drawn text item
+    pub fn get_text_line_height_with_spacing(&self) -> f32 {
+        unsafe { sys::igGetTextLineHeightWithSpacing() }
+    }
+    /// Get previously drawn item's size
+    pub fn get_item_rect_size(&self) -> (f32, f32) {
+        let mut out = ImVec2::new(0.0, 0.0);
+        unsafe {
+            sys::igGetItemRectSize(&mut out);
+        }
+        (out.x, out.y)
+    }
+}
+
+impl<'ui> Ui<'ui> {
     /// Creates a progress bar. Fraction is the progress level with 0.0 = 0% and 1.0 = 100%.
     ///
     /// # Example
     /// ```rust,no_run
     /// # use imgui::*;
     /// # let mut imgui = ImGui::init();
-    /// # let ui = imgui.frame((0, 0), (0, 0), 0.1);
+    /// # let ui = imgui.frame(FrameSize::new(100.0, 100.0, 1.0), 0.1);
     /// ui.progress_bar(0.6)
     ///     .size((100.0, 12.0))
     ///     .overlay_text("Progress!")
@@ -896,7 +1332,7 @@ impl<'ui> Ui<'ui> {
     /// ```rust,no_run
     /// # use imgui::*;
     /// # let mut imgui = ImGui::init();
-    /// # let ui = imgui.frame((0, 0), (0, 0), 0.1);
+    /// # let ui = imgui.frame(FrameSize::new(100.0, 100.0, 1.0), 0.1);
     /// ui.window("ChatWindow")
     ///     .title_bar(true)
     ///     .scrollable(false)
@@ -926,7 +1362,7 @@ impl<'ui> Ui<'ui> {
     /// ```rust,no_run
     /// # use imgui::*;
     /// # let mut imgui = ImGui::init();
-    /// # let ui = imgui.frame((0, 0), (0, 0), 0.1);
+    /// # let ui = imgui.frame(FrameSize::new(100.0, 100.0, 1.0), 0.1);
     /// ui.with_style_var(StyleVar::Alpha(0.2), || {
     ///     ui.text("AB");
     /// });
@@ -944,7 +1380,7 @@ impl<'ui> Ui<'ui> {
     /// ```rust,no_run
     /// # use imgui::*;
     /// # let mut imgui = ImGui::init();
-    /// # let ui = imgui.frame((0, 0), (0, 0), 0.1);
+    /// # let ui = imgui.frame(FrameSize::new(100.0, 100.0, 1.0), 0.1);
     /// # let styles = [StyleVar::Alpha(0.2), StyleVar::WindowPadding(ImVec2::new(1.0, 1.0))];
     /// ui.with_style_vars(&styles, || {
     ///     ui.text("A");
@@ -963,18 +1399,21 @@ impl<'ui> Ui<'ui> {
 
     #[inline]
     fn push_style_var(&self, style_var: StyleVar) {
-        use StyleVar::*;
         use sys::{igPushStyleVar, igPushStyleVarVec};
+        use StyleVar::*;
         match style_var {
             Alpha(v) => unsafe { igPushStyleVar(ImGuiStyleVar::Alpha, v) },
             WindowPadding(v) => unsafe { igPushStyleVarVec(ImGuiStyleVar::WindowPadding, v) },
             WindowRounding(v) => unsafe { igPushStyleVar(ImGuiStyleVar::WindowRounding, v) },
+            WindowBorderSize(v) => unsafe { igPushStyleVar(ImGuiStyleVar::WindowBorderSize, v) },
             WindowMinSize(v) => unsafe { igPushStyleVarVec(ImGuiStyleVar::WindowMinSize, v) },
-            ChildWindowRounding(v) => unsafe {
-                igPushStyleVar(ImGuiStyleVar::ChildWindowRounding, v)
-            },
+            ChildRounding(v) => unsafe { igPushStyleVar(ImGuiStyleVar::ChildRounding, v) },
+            ChildBorderSize(v) => unsafe { igPushStyleVar(ImGuiStyleVar::ChildBorderSize, v) },
+            PopupRounding(v) => unsafe { igPushStyleVar(ImGuiStyleVar::PopupRounding, v) },
+            PopupBorderSize(v) => unsafe { igPushStyleVar(ImGuiStyleVar::PopupBorderSize, v) },
             FramePadding(v) => unsafe { igPushStyleVarVec(ImGuiStyleVar::FramePadding, v) },
             FrameRounding(v) => unsafe { igPushStyleVar(ImGuiStyleVar::FrameRounding, v) },
+            FrameBorderSize(v) => unsafe { igPushStyleVar(ImGuiStyleVar::FrameBorderSize, v) },
             ItemSpacing(v) => unsafe { igPushStyleVarVec(ImGuiStyleVar::ItemSpacing, v) },
             ItemInnerSpacing(v) => unsafe { igPushStyleVarVec(ImGuiStyleVar::ItemInnerSpacing, v) },
             IndentSpacing(v) => unsafe { igPushStyleVar(ImGuiStyleVar::IndentSpacing, v) },
@@ -991,7 +1430,7 @@ impl<'ui> Ui<'ui> {
     /// ```rust,no_run
     /// # use imgui::*;
     /// # let mut imgui = ImGui::init();
-    /// # let ui = imgui.frame((0, 0), (0, 0), 0.1);
+    /// # let ui = imgui.frame(FrameSize::new(100.0, 100.0, 1.0), 0.1);
     /// ui.with_color_var(ImGuiCol::Text, (1.0, 0.0, 0.0, 1.0), || {
     ///     ui.text_wrapped("AB");
     /// });
@@ -1017,7 +1456,7 @@ impl<'ui> Ui<'ui> {
     /// ```rust,no_run
     /// # use imgui::*;
     /// # let mut imgui = ImGui::init();
-    /// # let ui = imgui.frame((0, 0), (0, 0), 0.1);
+    /// # let ui = imgui.frame(FrameSize::new(100.0, 100.0, 1.0), 0.1);
     /// let red = (1.0, 0.0, 0.0, 1.0);
     /// let green = (0.0, 1.0, 0.0, 1.0);
     /// # let vars = [(ImGuiCol::Text, red), (ImGuiCol::TextDisabled, green)];
@@ -1040,6 +1479,24 @@ impl<'ui> Ui<'ui> {
     }
 }
 
+impl<'ui> Ui<'ui> {
+    /// Runs a function after temporarily pushing an array of values to the
+    /// style and color stack.
+    pub fn with_style_and_color_vars<F, C>(
+        &self,
+        style_vars: &[StyleVar],
+        color_vars: &[(ImGuiCol, C)],
+        f: F,
+    ) where
+        F: FnOnce(),
+        C: Into<ImVec4> + Copy,
+    {
+        self.with_style_vars(style_vars, || {
+            self.with_color_vars(color_vars, f);
+        });
+    }
+}
+
 /// # Utilities
 impl<'ui> Ui<'ui> {
     /// Returns `true` if the last item is being hovered by the mouse.
@@ -1058,5 +1515,64 @@ impl<'ui> Ui<'ui> {
     /// ```
     pub fn is_item_hovered(&self) -> bool {
         unsafe { sys::igIsItemHovered(ImGuiHoveredFlags::empty()) }
+    }
+
+    /// Return `true` if the current window is being hovered by the mouse.
+    pub fn is_window_hovered(&self) -> bool {
+        unsafe { sys::igIsWindowHovered(ImGuiHoveredFlags::empty()) }
+    }
+
+    /// Returns `true` if the last item is being active.
+    pub fn is_item_active(&self) -> bool {
+        unsafe { sys::igIsItemActive() }
+    }
+
+    /// Group items together as a single item.
+    ///
+    /// May be useful to handle the same mouse event on a group of items, for example.
+    pub fn group<F: FnOnce()>(&self, f: F) {
+        unsafe {
+            sys::igBeginGroup();
+        }
+        f();
+        unsafe {
+            sys::igEndGroup();
+        }
+    }
+}
+
+/// # Draw list for custom drawing
+impl<'ui> Ui<'ui> {
+    /// Get access to drawing API
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use imgui::*;
+    /// fn custom_draw(ui: &Ui) {
+    ///     let draw_list = ui.get_window_draw_list();
+    ///     // Draw a line
+    ///     const WHITE: [f32; 3] = [1.0, 1.0, 1.0];
+    ///     draw_list.add_line([100.0, 100.0], [200.0, 200.0], WHITE).build();
+    ///     // Continue drawing ...
+    /// }
+    /// ```
+    ///
+    /// This function will panic if several instances of [`WindowDrawList`]
+    /// coexist. Before a new instance is got, a previous instance should be
+    /// dropped.
+    ///
+    /// ```rust
+    /// # use imgui::*;
+    /// fn custom_draw(ui: &Ui) {
+    ///     let draw_list = ui.get_window_draw_list();
+    ///     // Draw something...
+    ///
+    ///     // This second call will panic!
+    ///     let draw_list = ui.get_window_draw_list();
+    /// }
+    /// ```
+    pub fn get_window_draw_list(&'ui self) -> WindowDrawList<'ui> {
+        WindowDrawList::new(self)
     }
 }

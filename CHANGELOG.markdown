@@ -2,6 +2,86 @@
 
 ## [Unreleased]
 
+## [0.0.20] - 2018-08-13
+
+### Fixed
+
+- Clip rect regression in the glium renderer
+
+### Removed
+
+- Various things that were deprecated in imgui-rs 0.0.19
+
+## [0.0.19] - 2018-08-12
+
+### Added
+
+- New things in imgui/cimgui 1.53.1
+  - Style: Add `PopupRounding`, `FrameBorderSize`, `WindowBorderSize`, `PopupBorderSize`.
+  - DemoWindow: Add `no_close` state.
+  - Input: Add `no_undo_redo` method.
+  - *imgui-sys*:
+    - `igStyleColorsDark` and `igStyleColorsLight`
+    - DragDrop low level API
+    - `igGetFrameHeight`
+    - `igBeginCombo`, `igEndCombo`
+    - `igSetItemDefaultFocus`
+    - `igGetOverlayDrawList` and `igGetDrawListSharedData`
+    - `ImFontConfig_DefaultConstructor`
+    - `ImDrawList_AddImageRounded`
+- Input: Add `read_only` and `password` methods.
+- Various utility functions
+- Support for changing the mouse cursor
+- Custom font support
+- Support for item grouping (`group` function)
+- Custom drawing with draw list manipulation
+- Drag widgets
+- Input: Add `input_text_multiline` method
+
+### Changed
+
+- Upgrade to imgui/cimgui 1.53.1
+  - Rename `Ui::show_test_window` to `Ui::show_demo_window`. Keep redirection.
+  - Rename `sys::igGetItemsLineHeightWithSpacing` to `sys::igGetFrameHeightWithSpacing`.
+  Keep redirection.
+  - Rename `ImGuiTreeNodeFlags::AllowOverlapMode` to `ImGuiTreeNodeFlags::AllowItemOverlap`.
+  `sys::igSetNextWindowContentSize()`. Keep redirection.
+  - Rename `sys::ImGuiTextBuffer_append()` helper to `appendf()`.
+  - Rename `ImGuiStyleVar::ChildWindowRounding` to `ImGuiStyleVar::ChildRounding`.
+  Keep redirection.
+  - Rename `StyleVar::ChildWindowRounding` to `StyleVar::ChildRounding`.
+  Keep redirection.
+  - Rename `ImGuiCol::ChildWindowBg` to `ImGuiCol::ChildBg`.
+  Keep redirection.
+- Upgrade glium to 0.22.0. This updates winit to 0.16. This changes the way
+HIDPI are calculated. Depending on your needs, you may want to set HIDPI to 1
+by setting the environment variable `WINIT_HIDPI_FACTOR=1` if you use X11.
+- `frame()` now takes a single `FrameSize` argument
+- Bump minimum Rust version to 1.24
+- `set_mouse_down` takes button states by value, not by reference
+
+### Deprecated
+
+- Various imgui-sys things that were deprecated in imgui/cimgui 1.53.1
+  - Obsolete `sys::igIsRootWindowFocused()` in favor of using
+  `sys::igIsWindowFocused(ImGuiFocusedFlags::RootWindow)`.
+  - Obsolete `sys::igIsRootWindowOrAnyChildFocused()` in favor of using
+  `sys::igIsWindowFocused(ImGuiFocusedFlags::RootAndChildWindows)`.
+  - Obsolete `sys::igIsRootWindowOrAnyChildHovered()` in favor of using
+  `sys::igIsWindowHovered(ImGuiHoveredFlags::RootAndChildWindows)`.
+  - Obsolete `sys::SetNextWindowContentWidth()` in favor of using
+  - Obsolete `Window::show_borders`. Use `StyleVar` instead.
+  - Obsolete `ImGuiCol::ComboBg`. Use `PopupBg` instead.
+
+### Removed
+
+- Features that were removed in imgui/cimgui 1.53.1
+  - Remove `anti_aliased: bool` final parameter of `sys::ImDrawList_AddPolyline`
+  and `sys::ImDrawList_AddConvexPolyFilled`.
+  - Remove `ImGuiWindowFlags::ShowBorders` window flag. Borders are now fully
+  set up in the ImGuiStyle structure.
+- Various imgui-sys things that were deprecated in imgui/cimgui 1.52
+
 ## [0.0.18] - 2017-12-23
 
 ### Added
@@ -292,7 +372,9 @@
 
 - Initial release with cimgui/imgui 1.44, glium 0.9
 
-[Unreleased]: https://github.com/Gekkio/imgui-rs/compare/v0.0.18...HEAD
+[Unreleased]: https://github.com/Gekkio/imgui-rs/compare/v0.0.20...HEAD
+[0.0.20]: https://github.com/Gekkio/imgui-rs/compare/v0.0.19...v0.0.20
+[0.0.19]: https://github.com/Gekkio/imgui-rs/compare/v0.0.18...v0.0.19
 [0.0.18]: https://github.com/Gekkio/imgui-rs/compare/v0.0.17...v0.0.18
 [0.0.17]: https://github.com/Gekkio/imgui-rs/compare/v0.0.16...v0.0.17
 [0.0.16]: https://github.com/Gekkio/imgui-rs/compare/v0.0.15...v0.0.16

@@ -1,6 +1,6 @@
-use sys;
 use std::marker::PhantomData;
 use std::ptr;
+use sys;
 
 use super::Ui;
 
@@ -14,7 +14,7 @@ pub struct Menu<'ui, 'p> {
 impl<'ui, 'p> Menu<'ui, 'p> {
     pub fn new(_: &Ui<'ui>, label: &'p str) -> Self {
         Menu {
-            label: label,
+            label,
             enabled: true,
             _phantom: PhantomData,
         }
@@ -45,7 +45,7 @@ pub struct MenuItem<'ui, 'p> {
 impl<'ui, 'p> MenuItem<'ui, 'p> {
     pub fn new(_: &Ui<'ui>, label: &'p str) -> Self {
         MenuItem {
-            label: label,
+            label,
             shortcut: None,
             selected: None,
             enabled: true,
@@ -70,9 +70,10 @@ impl<'ui, 'p> MenuItem<'ui, 'p> {
     pub fn build(self) -> bool {
         let label = sys::ImStr::from(self.label);
         let shortcut = self.shortcut.map(|x| sys::ImStr::from(x)).unwrap_or(sys::ImStr::null());
-        let selected = self.selected.map(|x| x as *mut bool).unwrap_or(
-            ptr::null_mut(),
-        );
+        let selected = self
+            .selected
+            .map(|x| x as *mut bool)
+            .unwrap_or(ptr::null_mut());
         let enabled = self.enabled;
         unsafe { sys::igMenuItemPtr(label, shortcut, selected, enabled) }
     }

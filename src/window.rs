@@ -1,6 +1,6 @@
-use sys;
 use std::marker::PhantomData;
 use std::ptr;
+use sys;
 
 use super::{ImGuiCond, ImGuiWindowFlags, ImVec2, Ui};
 
@@ -23,7 +23,7 @@ impl<'ui, 'p> Window<'ui, 'p> {
             pos_cond: ImGuiCond::empty(),
             size: (0.0, 0.0),
             size_cond: ImGuiCond::empty(),
-            name: name,
+            name,
             opened: None,
             flags: ImGuiWindowFlags::empty(),
             _phantom: PhantomData,
@@ -87,11 +87,6 @@ impl<'ui, 'p> Window<'ui, 'p> {
         self
     }
     #[inline]
-    pub fn show_borders(mut self, value: bool) -> Self {
-        self.flags.set(ImGuiWindowFlags::ShowBorders, value);
-        self
-    }
-    #[inline]
     pub fn save_settings(mut self, value: bool) -> Self {
         self.flags.set(ImGuiWindowFlags::NoSavedSettings, !value);
         self
@@ -118,34 +113,26 @@ impl<'ui, 'p> Window<'ui, 'p> {
     }
     #[inline]
     pub fn no_bring_to_front_on_focus(mut self, value: bool) -> Self {
-        self.flags.set(
-            ImGuiWindowFlags::NoBringToFrontOnFocus,
-            value,
-        );
+        self.flags
+            .set(ImGuiWindowFlags::NoBringToFrontOnFocus, value);
         self
     }
     #[inline]
     pub fn always_vertical_scrollbar(mut self, value: bool) -> Self {
-        self.flags.set(
-            ImGuiWindowFlags::AlwaysVerticalScrollbar,
-            value,
-        );
+        self.flags
+            .set(ImGuiWindowFlags::AlwaysVerticalScrollbar, value);
         self
     }
     #[inline]
     pub fn always_horizontal_scrollbar(mut self, value: bool) -> Self {
-        self.flags.set(
-            ImGuiWindowFlags::AlwaysHorizontalScrollbar,
-            value,
-        );
+        self.flags
+            .set(ImGuiWindowFlags::AlwaysHorizontalScrollbar, value);
         self
     }
     #[inline]
     pub fn always_use_window_padding(mut self, value: bool) -> Self {
-        self.flags.set(
-            ImGuiWindowFlags::AlwaysUseWindowPadding,
-            value,
-        );
+        self.flags
+            .set(ImGuiWindowFlags::AlwaysUseWindowPadding, value);
         self
     }
     pub fn build<F: FnOnce()>(self, f: F) {
@@ -158,15 +145,17 @@ impl<'ui, 'p> Window<'ui, 'p> {
             }
             sys::igBegin(
                 sys::ImStr::from(self.name),
-                self.opened.map(|x| x as *mut bool).unwrap_or(
-                    ptr::null_mut(),
-                ),
+                self.opened
+                    .map(|x| x as *mut bool)
+                    .unwrap_or(ptr::null_mut()),
                 self.flags,
             )
         };
         if render {
             f();
         }
-        unsafe { sys::igEnd() };
+        unsafe {
+            sys::igEnd();
+        };
     }
 }

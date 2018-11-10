@@ -2,7 +2,7 @@
 
 **Still fairly experimental!**
 
-Minimum Rust version: 1.20
+Minimum Rust version: 1.24
 
 [![Build Status](https://travis-ci.org/Gekkio/imgui-rs.svg?branch=master)](https://travis-ci.org/Gekkio/imgui-rs)
 [![Latest release on crates.io](https://meritbadge.herokuapp.com/imgui)](https://crates.io/crates/imgui)
@@ -15,6 +15,7 @@ ui.window("Hello world")
     .size((300.0, 100.0), ImGuiCond::FirstUseEver)
     .build(|| {
         ui.text("Hello world!");
+        ui.text("こんにちは世界！");
         ui.text("This...is...imgui-rs!");
         ui.separator();
         let mouse_pos = ui.imgui().mouse_pos();
@@ -69,8 +70,8 @@ build this libary and run the examples.
 1. Change or add something
 2. Run rustfmt to guarantee code style conformance
 
-        cargo install rustfmt
-        cargo fmt -- --write-mode=overwrite
+        rustup component add rustfmt-preview
+        cargo fmt
 
 3. Open a pull request in Github
 

@@ -2,10 +2,12 @@
 extern crate gfx;
 extern crate imgui;
 
-use gfx::{Bind, Bundle, CommandBuffer, Encoder, Factory, IntoIndexBuffer, Rect, Resources, Slice};
 use gfx::handle::{Buffer, RenderTargetView};
+use gfx::memory::Bind;
+use gfx::texture::{FilterMethod, SamplerInfo, WrapMode};
 use gfx::traits::FactoryExt;
-use imgui::{DrawList, ImDrawIdx, ImDrawVert, ImGui, Ui};
+use gfx::{Bundle, CommandBuffer, Encoder, Factory, IntoIndexBuffer, Rect, Resources, Slice};
+use imgui::{DrawList, FrameSize, ImDrawIdx, ImDrawVert, ImGui, Ui};
 
 pub type RendererResult<T> = Result<T, RendererError>;
 
@@ -18,19 +20,27 @@ pub enum RendererError {
 }
 
 impl From<gfx::UpdateError<usize>> for RendererError {
-    fn from(e: gfx::UpdateError<usize>) -> RendererError { RendererError::Update(e) }
+    fn from(e: gfx::UpdateError<usize>) -> RendererError {
+        RendererError::Update(e)
+    }
 }
 
 impl From<gfx::buffer::CreationError> for RendererError {
-    fn from(e: gfx::buffer::CreationError) -> RendererError { RendererError::Buffer(e) }
+    fn from(e: gfx::buffer::CreationError) -> RendererError {
+        RendererError::Buffer(e)
+    }
 }
 
 impl From<gfx::PipelineStateError<String>> for RendererError {
-    fn from(e: gfx::PipelineStateError<String>) -> RendererError { RendererError::Pipeline(e) }
+    fn from(e: gfx::PipelineStateError<String>) -> RendererError {
+        RendererError::Pipeline(e)
+    }
 }
 
 impl From<gfx::CombinedError> for RendererError {
-    fn from(e: gfx::CombinedError) -> RendererError { RendererError::Combined(e) }
+    fn from(e: gfx::CombinedError) -> RendererError {
+        RendererError::Combined(e)
+    }
 }
 
 gfx_defines!{
@@ -38,16 +48,20 @@ gfx_defines!{
         vertex_buffer: gfx::VertexBuffer<ImDrawVert> = (),
         matrix: gfx::Global<[[f32; 4]; 4]> = "matrix",
         tex: gfx::TextureSampler<[f32; 4]> = "tex",
-        out: gfx::BlendTarget<gfx::format::Rgba8> = ("Target0", gfx::state::MASK_ALL, gfx::preset::blend::ALPHA),
+        out: gfx::BlendTarget<gfx::format::Rgba8> = (
+            "Target0",
+            gfx::state::ColorMask::all(),
+            gfx::preset::blend::ALPHA,
+        ),
         scissor: gfx::Scissor = (),
     }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Shaders {
-    GlSl400, // OpenGL 4.0+
-    GlSl130, // OpenGL 3.0+
-    GlSl110, // OpenGL 2.0+
+    GlSl400,   // OpenGL 4.0+
+    GlSl130,   // OpenGL 3.0+
+    GlSl110,   // OpenGL 2.0+
     GlSlEs300, // OpenGL ES 3.0+
     GlSlEs100, // OpenGL ES 2.0+
 }
@@ -93,11 +107,7 @@ impl<R: Resources> Renderer<R> {
         out: RenderTargetView<R, gfx::format::Rgba8>,
     ) -> RendererResult<Renderer<R>> {
         let (vs_code, ps_code) = shaders.get_program_code();
-        let pso = factory.create_pipeline_simple(
-            vs_code,
-            ps_code,
-            pipe::new(),
-        )?;
+        let pso = factory.create_pipeline_simple(vs_code, ps_code, pipe::new())?;
         let vertex_buffer = factory.create_buffer::<ImDrawVert>(
             256,
             gfx::buffer::Role::Vertex,
@@ -117,11 +127,13 @@ impl<R: Resources> Renderer<R> {
                     handle.height as u16,
                     gfx::texture::AaMode::Single,
                 ),
+                gfx::texture::Mipmap::Provided,
                 &[handle.pixels],
             )
         })?;
         // TODO: set texture id in imgui
-        let sampler = factory.create_sampler_linear();
+        let sampler =
+            factory.create_sampler(SamplerInfo::new(FilterMethod::Trilinear, WrapMode::Clamp));
         let data = pipe::Data {
             vertex_buffer: vertex_buffer,
             matrix: [
@@ -160,52 +172,62 @@ impl<R: Resources> Renderer<R> {
         factory: &mut F,
         encoder: &mut Encoder<R, C>,
     ) -> RendererResult<()> {
-        let (width, height) = ui.imgui().display_size();
+        let FrameSize {
+            logical_size: (width, height),
+            hidpi_factor,
+        } = ui.frame_size();
 
-        if width == 0.0 || height == 0.0 {
+        if !(width > 0.0 && height > 0.0) {
             return Ok(());
         }
+        let fb_size = (
+            (width * hidpi_factor) as f32,
+            (height * hidpi_factor) as f32,
+        );
+
         self.bundle.data.matrix = [
-            [2.0 / width as f32, 0.0, 0.0, 0.0],
-            [0.0, -2.0 / height as f32, 0.0, 0.0],
+            [(2.0 / width) as f32, 0.0, 0.0, 0.0],
+            [0.0, (2.0 / -height) as f32, 0.0, 0.0],
             [0.0, 0.0, -1.0, 0.0],
             [-1.0, 1.0, 0.0, 1.0],
         ];
 
-        ui.render(|ui, draw_list| {
-            self.render_draw_list(ui, factory, encoder, &draw_list)
+        ui.render(|ui, mut draw_data| {
+            draw_data.scale_clip_rects(ui.imgui().display_framebuffer_scale());
+            for draw_list in &draw_data {
+                self.render_draw_list(factory, encoder, &draw_list, fb_size)?;
+            }
+            Ok(())
         })
     }
     fn render_draw_list<'a, F: Factory<R>, C: CommandBuffer<R>>(
         &mut self,
-        ui: &'a Ui<'a>,
         factory: &mut F,
         encoder: &mut Encoder<R, C>,
         draw_list: &DrawList<'a>,
+        fb_size: (f32, f32),
     ) -> RendererResult<()> {
-        let (scale_width, scale_height) = ui.imgui().display_framebuffer_scale();
+        let (fb_width, fb_height) = fb_size;
+
+        self.upload_vertex_buffer(factory, encoder, draw_list.vtx_buffer)?;
+        self.upload_index_buffer(factory, encoder, draw_list.idx_buffer)?;
 
         self.bundle.slice.start = 0;
         for cmd in draw_list.cmd_buffer {
             // TODO: check cmd.texture_id
 
-            self.upload_vertex_buffer(
-                factory,
-                encoder,
-                draw_list.vtx_buffer,
-            )?;
-            self.upload_index_buffer(
-                factory,
-                encoder,
-                draw_list.idx_buffer,
-            )?;
-
             self.bundle.slice.end = self.bundle.slice.start + cmd.elem_count;
             self.bundle.data.scissor = Rect {
-                x: (cmd.clip_rect.x * scale_width) as u16,
-                y: (cmd.clip_rect.y * scale_height) as u16,
-                w: ((cmd.clip_rect.z - cmd.clip_rect.x).abs() * scale_width) as u16,
-                h: ((cmd.clip_rect.w - cmd.clip_rect.y).abs() * scale_height) as u16,
+                x: cmd.clip_rect.x.max(0.0).min(fb_width).round() as u16,
+                y: cmd.clip_rect.y.max(0.0).min(fb_height).round() as u16,
+                w: (cmd.clip_rect.z - cmd.clip_rect.x)
+                    .abs()
+                    .min(fb_width)
+                    .round() as u16,
+                h: (cmd.clip_rect.w - cmd.clip_rect.y)
+                    .abs()
+                    .min(fb_height)
+                    .round() as u16,
             };
             self.bundle.encode(encoder);
             self.bundle.slice.start = self.bundle.slice.end;
@@ -226,11 +248,7 @@ impl<R: Resources> Renderer<R> {
                 Bind::empty(),
             )?;
         }
-        Ok(encoder.update_buffer(
-            &self.bundle.data.vertex_buffer,
-            vtx_buffer,
-            0,
-        )?)
+        Ok(encoder.update_buffer(&self.bundle.data.vertex_buffer, vtx_buffer, 0)?)
     }
     fn upload_index_buffer<F: Factory<R>, C: CommandBuffer<R>>(
         &mut self,

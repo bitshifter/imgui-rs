@@ -19,7 +19,9 @@ impl ImString {
         v.push(b'\0');
         ImString(v)
     }
-    pub unsafe fn from_utf8_with_nul_unchecked(v: Vec<u8>) -> ImString { ImString(v) }
+    pub unsafe fn from_utf8_with_nul_unchecked(v: Vec<u8>) -> ImString {
+        ImString(v)
+    }
     pub fn clear(&mut self) {
         self.0.clear();
         self.0.push(b'\0');
@@ -33,12 +35,24 @@ impl ImString {
         self.0.extend_from_slice(string.as_bytes());
         self.0.push(b'\0');
     }
-    pub fn capacity(&self) -> usize { self.0.capacity() - 1 }
-    pub fn capacity_with_nul(&self) -> usize { self.0.capacity() }
-    pub fn reserve(&mut self, additional: usize) { self.0.reserve(additional); }
-    pub fn reserve_exact(&mut self, additional: usize) { self.0.reserve_exact(additional); }
-    pub fn as_ptr(&self) -> *const c_char { self.0.as_ptr() as *const _ }
-    pub fn as_mut_ptr(&mut self) -> *mut c_char { self.0.as_mut_ptr() as *mut _ }
+    pub fn capacity(&self) -> usize {
+        self.0.capacity() - 1
+    }
+    pub fn capacity_with_nul(&self) -> usize {
+        self.0.capacity()
+    }
+    pub fn reserve(&mut self, additional: usize) {
+        self.0.reserve(additional);
+    }
+    pub fn reserve_exact(&mut self, additional: usize) {
+        self.0.reserve_exact(additional);
+    }
+    pub fn as_ptr(&self) -> *const c_char {
+        self.0.as_ptr() as *const _
+    }
+    pub fn as_mut_ptr(&mut self) -> *mut c_char {
+        self.0.as_mut_ptr() as *mut _
+    }
 
     pub fn as_str(&self) -> &str {
         let len = if let Some(index) = self.0.iter().position(|&c| c == b'\0') {
@@ -63,11 +77,15 @@ impl ImString {
 }
 
 impl<'a> Default for ImString {
-    fn default() -> ImString { unsafe { ImString::from_utf8_with_nul_unchecked(vec![0]) } }
+    fn default() -> ImString {
+        unsafe { ImString::from_utf8_with_nul_unchecked(vec![0]) }
+    }
 }
 
 impl From<String> for ImString {
-    fn from(s: String) -> ImString { ImString::new(s) }
+    fn from(s: String) -> ImString {
+        ImString::new(s)
+    }
 }
 
 impl AsRef<str> for ImString {
@@ -79,5 +97,8 @@ impl Borrow<str> for ImString {
 }
 
 impl fmt::Debug for ImString {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { fmt::Debug::fmt(self.as_str(), f) }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self.as_str(), f)
+    }
 }
+

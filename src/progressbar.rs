@@ -1,6 +1,6 @@
 #![warn(missing_docs)]
-use sys;
 use std::marker::PhantomData;
+use sys;
 
 use super::{ImVec2, Ui};
 
@@ -21,7 +21,7 @@ impl<'ui, 'p> ProgressBar<'ui, 'p> {
     /// specified.
     pub fn new(_: &Ui<'ui>, fraction: f32) -> Self {
         ProgressBar {
-            fraction: fraction,
+            fraction,
             size: ImVec2::new(-1.0, 0.0),
             overlay_text: None,
             _phantom: PhantomData,

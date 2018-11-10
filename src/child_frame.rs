@@ -1,12 +1,13 @@
-use sys;
 use std::marker::PhantomData;
+use sys;
 
-use super::{ImVec2, ImGuiWindowFlags, Ui};
+use super::{ImGuiWindowFlags, ImVec2, Ui};
 
 #[must_use]
 pub struct ChildFrame<'ui, 'p> {
     name: &'p str,
     size: ImVec2,
+    border: bool,
     flags: ImGuiWindowFlags,
     _phantom: PhantomData<&'ui Ui<'ui>>,
 }
@@ -14,8 +15,9 @@ pub struct ChildFrame<'ui, 'p> {
 impl<'ui, 'p> ChildFrame<'ui, 'p> {
     pub fn new<S: Into<ImVec2>>(_: &Ui<'ui>, name: &'p str, size: S) -> ChildFrame<'ui, 'p> {
         ChildFrame {
-            name: name,
+            name,
             size: size.into(),
+            border: false,
             flags: ImGuiWindowFlags::empty(),
             _phantom: PhantomData,
         }
@@ -47,7 +49,7 @@ impl<'ui, 'p> ChildFrame<'ui, 'p> {
     }
     #[inline]
     pub fn show_borders(mut self, value: bool) -> Self {
-        self.flags.set(ImGuiWindowFlags::ShowBorders, value);
+        self.border = value;
         self
     }
     #[inline]
@@ -72,43 +74,31 @@ impl<'ui, 'p> ChildFrame<'ui, 'p> {
     }
     #[inline]
     pub fn bring_to_front_on_focus(mut self, value: bool) -> Self {
-        self.flags.set(
-            ImGuiWindowFlags::NoBringToFrontOnFocus,
-            !value,
-        );
+        self.flags
+            .set(ImGuiWindowFlags::NoBringToFrontOnFocus, !value);
         self
     }
     #[inline]
     pub fn always_show_vertical_scroll_bar(mut self, value: bool) -> Self {
-        self.flags.set(
-            ImGuiWindowFlags::AlwaysVerticalScrollbar,
-            value,
-        );
+        self.flags
+            .set(ImGuiWindowFlags::AlwaysVerticalScrollbar, value);
         self
     }
     #[inline]
     pub fn always_show_horizontal_scroll_bar(mut self, value: bool) -> Self {
-        self.flags.set(
-            ImGuiWindowFlags::AlwaysHorizontalScrollbar,
-            value,
-        );
+        self.flags
+            .set(ImGuiWindowFlags::AlwaysHorizontalScrollbar, value);
         self
     }
     #[inline]
     pub fn always_use_window_padding(mut self, value: bool) -> Self {
-        self.flags.set(
-            ImGuiWindowFlags::AlwaysUseWindowPadding,
-            value,
-        );
+        self.flags
+            .set(ImGuiWindowFlags::AlwaysUseWindowPadding, value);
         self
     }
     pub fn build<F: FnOnce()>(self, f: F) {
-        // See issue for history.
-        // https://github.com/Gekkio/imgui-rs/pull/58
-        let show_border = false;
-
         let render_child_frame =
-            unsafe { sys::igBeginChild(sys::ImStr::from(self.name), self.size, show_border, self.flags) };
+            unsafe { sys::igBeginChild(sys::ImStr::from(self.name), self.size, self.border, self.flags) };
         if render_child_frame {
             f();
         }

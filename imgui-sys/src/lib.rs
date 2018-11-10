@@ -3,6 +3,8 @@
 #[macro_use]
 extern crate bitflags;
 
+extern crate libc;
+
 #[cfg(feature = "gfx")]
 #[macro_use]
 extern crate gfx;
@@ -12,7 +14,6 @@ extern crate glium;
 
 use std::convert::From;
 use std::marker::PhantomData;
-use std::mem;
 use std::os::raw::{c_char, c_float, c_int, c_short, c_uchar, c_uint, c_ushort, c_void};
 use std::ptr;
 use std::slice;
@@ -24,7 +25,7 @@ mod gfx_support;
 mod glium_support;
 
 /// ImGui context (opaque)
-pub enum ImGuiContext { }
+pub enum ImGuiContext {}
 
 /// 32-bit unsigned integer (typically used to store packed colors)
 pub type ImU32 = c_uint;
@@ -45,7 +46,7 @@ pub enum ImGuiCol {
     Text,
     TextDisabled,
     WindowBg,
-    ChildWindowBg,
+    ChildBg,
     PopupBg,
     Border,
     BorderShadow,
@@ -60,7 +61,6 @@ pub enum ImGuiCol {
     ScrollbarGrab,
     ScrollbarGrabHovered,
     ScrollbarGrabActive,
-    ComboBg,
     CheckMark,
     SliderGrab,
     SliderGrabActive,
@@ -85,6 +85,7 @@ pub enum ImGuiCol {
     PlotHistogramHovered,
     TextSelectedBg,
     ModalWindowDarkening,
+    DragDropTarget,
 }
 impl ImGuiCol {
     pub fn values() -> &'static [ImGuiCol] {
@@ -93,7 +94,7 @@ impl ImGuiCol {
             Text,
             TextDisabled,
             WindowBg,
-            ChildWindowBg,
+            ChildBg,
             PopupBg,
             Border,
             BorderShadow,
@@ -108,7 +109,6 @@ impl ImGuiCol {
             ScrollbarGrab,
             ScrollbarGrabHovered,
             ScrollbarGrabActive,
-            ComboBg,
             CheckMark,
             SliderGrab,
             SliderGrabActive,
@@ -133,6 +133,7 @@ impl ImGuiCol {
             PlotHistogramHovered,
             TextSelectedBg,
             ModalWindowDarkening,
+            DragDropTarget,
         ];
         values
     }
@@ -146,17 +147,22 @@ pub enum ImGuiStyleVar {
     Alpha,
     WindowPadding,
     WindowRounding,
+    WindowBorderSize,
     WindowMinSize,
-    ChildWindowRounding,
+    ChildRounding,
+    ChildBorderSize,
+    PopupRounding,
+    PopupBorderSize,
     FramePadding,
     FrameRounding,
+    FrameBorderSize,
     ItemSpacing,
     ItemInnerSpacing,
     IndentSpacing,
     GrabMinSize,
     ButtonTextAlign,
 }
-pub const ImGuiStyleVar_COUNT: usize = 12;
+pub const ImGuiStyleVar_COUNT: usize = 17;
 
 /// A key identifier (ImGui-side enum)
 #[repr(C)]
@@ -236,7 +242,6 @@ bitflags!(
         const NoScrollWithMouse         = 1 << 4;
         const NoCollapse                = 1 << 5;
         const AlwaysAutoResize          = 1 << 6;
-        const ShowBorders               = 1 << 7;
         const NoSavedSettings           = 1 << 8;
         const NoInputs                  = 1 << 9;
         const MenuBar                   = 1 << 10;
@@ -246,6 +251,7 @@ bitflags!(
         const AlwaysVerticalScrollbar   = 1 << 14;
         const AlwaysHorizontalScrollbar = 1 << 15;
         const AlwaysUseWindowPadding    = 1 << 16;
+        const ResizeFromAnySide         = 1 << 17;
     }
 );
 
@@ -280,6 +286,7 @@ bitflags!(
         const AlwaysInsertMode    = 1 << 13;
         const ReadOnly            = 1 << 14;
         const Password            = 1 << 15;
+        const NoUndoRedo          = 1 << 16;
     }
 );
 
@@ -299,7 +306,7 @@ bitflags!(
     pub struct ImGuiTreeNodeFlags: c_int {
         const Selected          = 1;
         const Framed            = 1 << 1;
-        const AllowOverlapMode  = 1 << 2;
+        const AllowItemOverlap  = 1 << 2;
         const NoTreePushOnOpen  = 1 << 3;
         const NoAutoOpenOnLog   = 1 << 4;
         const DefaultOpen       = 1 << 5;
@@ -314,21 +321,126 @@ bitflags!(
 );
 
 bitflags!(
-    /// Flags for hover checks
+    /// Flags for window focus check
     #[repr(C)]
-    pub struct ImGuiHoveredFlags: c_int {
-        const AllowWhenBlockedByPopup      = 1;
-        const AllowWhenBlockedByActiveItem = 1 << 2;
-        const AllowWhenOverlapped          = 1 << 3;
-        const RectOnly = ImGuiHoveredFlags::AllowWhenBlockedByPopup.bits
-            | ImGuiHoveredFlags::AllowWhenBlockedByActiveItem.bits
-            | ImGuiHoveredFlags::AllowWhenOverlapped.bits;
+    pub struct ImGuiFocusedFlags: c_int {
+        const ChildWindows = 1 << 0;
+        const RootWindow = 1 << 1;
+        const RootAndChildWindows =
+            ImGuiFocusedFlags::RootWindow.bits | ImGuiFocusedFlags::ChildWindows.bits;
     }
 );
 
-pub type ImGuiTextEditCallback = Option<
-    extern "C" fn(data: *mut ImGuiTextEditCallbackData) -> c_int,
->;
+bitflags!(
+    /// Flags for hover checks
+    #[repr(C)]
+    pub struct ImGuiHoveredFlags: c_int {
+        const ChildWindows                 = 1 << 0;
+        const RootWindow                   = 1 << 1;
+        const AllowWhenBlockedByPopup      = 1 << 2;
+        const AllowWhenBlockedByActiveItem = 1 << 4;
+        const AllowWhenOverlapped          = 1 << 5;
+        const RectOnly = ImGuiHoveredFlags::AllowWhenBlockedByPopup.bits
+            | ImGuiHoveredFlags::AllowWhenBlockedByActiveItem.bits
+            | ImGuiHoveredFlags::AllowWhenOverlapped.bits;
+        const RootAndChildWindows = ImGuiFocusedFlags::RootWindow.bits
+            | ImGuiFocusedFlags::ChildWindows.bits;
+    }
+);
+
+bitflags!(
+    /// Flags for igBeginCombo
+    #[repr(C)]
+    pub struct ImGuiComboFlags: c_int {
+        /// Align the popup toward the left by default
+        const PopupAlignLeft = 1 << 0;
+        /// Max ~4 items visible.
+        /// Tip: If you want your combo popup to be a specific size you can use
+        /// igSetNextWindowSizeConstraints() prior to calling igBeginCombo()
+        const HeightSmall    = 1 << 1;
+        /// Max ~8 items visible (default)
+        const HeightRegular  = 1 << 2;
+        /// Max ~20 items visible
+        const HeightLarge    = 1 << 3;
+        /// As many fitting items as possible
+        const HeightLargest  = 1 << 4;
+        const HeightMask     = ImGuiComboFlags::HeightSmall.bits
+            | ImGuiComboFlags::HeightRegular.bits
+            | ImGuiComboFlags::HeightLarge.bits
+            | ImGuiComboFlags::HeightLargest.bits;
+    }
+);
+
+bitflags!(
+    /// Flags for igBeginDragDropSource(), igAcceptDragDropPayload()
+    #[repr(C)]
+    pub struct ImGuiDragDropFlags: c_int {
+        // BeginDragDropSource() flags
+        /// By default, a successful call to igBeginDragDropSource opens a
+        /// tooltip so you can display a preview or description of the source
+        /// contents. This flag disable this behavior.
+        const SourceNoPreviewTooltip   = 1 << 0;
+        /// By default, when dragging we clear data so that igIsItemHovered()
+        /// will return true, to avoid subsequent user code submitting tooltips.
+        /// This flag disable this behavior so you can still call
+        /// igIsItemHovered() on the source item.
+        const SourceNoDisableHover     = 1 << 1;
+        /// Disable the behavior that allows to open tree nodes and collapsing
+        /// header by holding over them while dragging a source item.
+        const SourceNoHoldToOpenOthers = 1 << 2;
+        /// Allow items such as igText(), igImage() that have no unique
+        /// identifier to be used as drag source, by manufacturing a temporary
+        /// identifier based on their window-relative position. This is
+        /// extremely unusual within the dear imgui ecosystem and so we made it
+        /// explicit.
+        const SourceAllowNullID        = 1 << 3;
+        /// External source (from outside of imgui), won't attempt to read
+        /// current item/window info. Will always return true. Only one Extern
+        /// source can be active simultaneously.
+        const SourceExtern             = 1 << 4;
+        // AcceptDragDropPayload() flags
+        /// igAcceptDragDropPayload() will returns true even before the mouse
+        /// button is released. You can then call igIsDelivery() to test if the
+        /// payload needs to be delivered.
+        const AcceptBeforeDelivery     = 1 << 10;
+        /// Do not draw the default highlight rectangle when hovering over target.
+        const AcceptNoDrawDefaultRect  = 1 << 11;
+        /// For peeking ahead and inspecting the payload before delivery.
+        const AcceptPeekOnly           = ImGuiDragDropFlags::AcceptBeforeDelivery.bits
+            | ImGuiDragDropFlags::AcceptNoDrawDefaultRect.bits;
+    }
+);
+
+bitflags!(
+    /// Flags for indictating which corner of a rectangle should be rounded
+    #[repr(C)]
+    pub struct ImDrawCornerFlags: c_int {
+        const TopLeft  = 1 << 0;
+        const TopRight = 1 << 1;
+        const BotLeft  = 1 << 2;
+        const BotRight = 1 << 3;
+        const Top      = ImDrawCornerFlags::TopLeft.bits
+                       | ImDrawCornerFlags::TopRight.bits;
+        const Bot      = ImDrawCornerFlags::BotLeft.bits
+                       | ImDrawCornerFlags::BotRight.bits;
+        const Left     = ImDrawCornerFlags::TopLeft.bits
+                       | ImDrawCornerFlags::BotLeft.bits;
+        const Right    = ImDrawCornerFlags::TopRight.bits
+                       | ImDrawCornerFlags::BotRight.bits;
+        const All      = 0xF;
+    }
+);
+
+bitflags!(
+    #[repr(C)]
+    pub struct ImDrawListFlags: c_int {
+        const AntiAliasedLines = 1 << 0;
+        const AntiAliasedFill  = 1 << 1;
+    }
+);
+
+pub type ImGuiTextEditCallback =
+    Option<extern "C" fn(data: *mut ImGuiTextEditCallbackData) -> c_int>;
 
 pub type ImGuiSizeConstraintCallback = Option<
     extern "C" fn(data: *mut ImGuiSizeConstraintCallbackData),
@@ -358,19 +470,27 @@ impl ImVec2 {
 }
 
 impl From<[f32; 2]> for ImVec2 {
-    fn from(array: [f32; 2]) -> ImVec2 { ImVec2::new(array[0], array[1]) }
+    fn from(array: [f32; 2]) -> ImVec2 {
+        ImVec2::new(array[0], array[1])
+    }
 }
 
 impl From<(f32, f32)> for ImVec2 {
-    fn from((x, y): (f32, f32)) -> ImVec2 { ImVec2::new(x, y) }
+    fn from((x, y): (f32, f32)) -> ImVec2 {
+        ImVec2::new(x, y)
+    }
 }
 
 impl Into<[f32; 2]> for ImVec2 {
-    fn into(self) -> [f32; 2] { [self.x, self.y] }
+    fn into(self) -> [f32; 2] {
+        [self.x, self.y]
+    }
 }
 
 impl Into<(f32, f32)> for ImVec2 {
-    fn into(self) -> (f32, f32) { (self.x, self.y) }
+    fn into(self) -> (f32, f32) {
+        (self.x, self.y)
+    }
 }
 
 /// A tuple of 4 floating-point values
@@ -403,19 +523,27 @@ impl ImVec4 {
 }
 
 impl From<[f32; 4]> for ImVec4 {
-    fn from(array: [f32; 4]) -> ImVec4 { ImVec4::new(array[0], array[1], array[2], array[3]) }
+    fn from(array: [f32; 4]) -> ImVec4 {
+        ImVec4::new(array[0], array[1], array[2], array[3])
+    }
 }
 
 impl From<(f32, f32, f32, f32)> for ImVec4 {
-    fn from((x, y, z, w): (f32, f32, f32, f32)) -> ImVec4 { ImVec4::new(x, y, z, w) }
+    fn from((x, y, z, w): (f32, f32, f32, f32)) -> ImVec4 {
+        ImVec4::new(x, y, z, w)
+    }
 }
 
 impl Into<[f32; 4]> for ImVec4 {
-    fn into(self) -> [f32; 4] { [self.x, self.y, self.z, self.w] }
+    fn into(self) -> [f32; 4] {
+        [self.x, self.y, self.z, self.w]
+    }
 }
 
 impl Into<(f32, f32, f32, f32)> for ImVec4 {
-    fn into(self) -> (f32, f32, f32, f32) { (self.x, self.y, self.z, self.w) }
+    fn into(self) -> (f32, f32, f32, f32) {
+        (self.x, self.y, self.z, self.w)
+    }
 }
 
 /// Runtime data for styling/colors
@@ -454,19 +582,29 @@ pub struct ImGuiStyle {
     pub alpha: c_float,
     /// Padding within a window
     pub window_padding: ImVec2,
-    /// Minimum window size
-    pub window_min_size: ImVec2,
     /// Radius of window corners rounding. Set to 0.0f to have rectangular windows
     pub window_rounding: c_float,
+    /// Thickness of border around windows. Generally set to 0.0f or 1.0f. Other values not well tested.
+    pub window_border_size: c_float,
+    /// Minimum window size
+    pub window_min_size: ImVec2,
     /// Alignment for title bar text. Defaults to (0.0f, 0.5f) for left-aligned, vertically centered
     pub window_title_align: ImVec2,
     /// Radius of child window corners rounding. Set to 0.0f to have rectangular child windows
-    pub child_window_rounding: c_float,
+    pub child_rounding: c_float,
+    /// Thickness of border around child windows. Generally set to 0.0f or 1.0f. Other values not well tested.
+    pub child_border_size: c_float,
+    /// Radius of popup window corners rounding. Set to 0.0f to have rectangular child windows
+    pub popup_rounding: c_float,
+    /// Thickness of border around popup or tooltip windows. Generally set to 0.0f or 1.0f. Other values not well tested.
+    pub popup_border_size: c_float,
     /// Padding within a framed rectangle (used by most widgets)
     pub frame_padding: ImVec2,
     /// Radius of frame corners rounding. Set to 0.0f to have rectangular frames (used by most
     /// widgets).
     pub frame_rounding: c_float,
+    /// Thickness of border around frames. Generally set to 0.0f or 1.0f. Other values not well tested.
+    pub frame_border_size: c_float,
     /// Horizontal and vertical spacing between widgets/lines
     pub item_spacing: ImVec2,
     /// Horizontal and vertical spacing between within elements of a composed
@@ -501,7 +639,7 @@ pub struct ImGuiStyle {
     /// Enable anti-aliasing on lines/borders. Disable if you are really short on CPU/GPU.
     pub anti_aliased_lines: bool,
     /// Enable anti-aliasing on filled shapes (rounded rectangles, circles, etc.)
-    pub anti_aliased_shapes: bool,
+    pub anti_aliased_fill: bool,
     /// Tessellation tolerance. Decrease for highly tessellated curves (higher quality, more
     /// polygons), increase to reduce quality.
     pub curve_tessellation_tol: c_float,
@@ -533,7 +671,8 @@ pub struct ImGuiIO {
     pub display_visible_min: ImVec2,
     pub display_visible_max: ImVec2,
 
-    pub osx_behaviors: bool,
+    pub opt_mac_osx_behaviors: bool,
+    pub opt_cursor_blink: bool,
 
     pub render_draw_lists_fn: Option<extern "C" fn(data: *mut ImDrawData)>,
 
@@ -578,6 +717,7 @@ pub struct ImGuiIO {
     mouse_down_owned: [bool; 5],
     mouse_down_duration: [c_float; 5],
     mouse_down_duration_prev: [c_float; 5],
+    mouse_drag_max_distance_abs: [ImVec2; 5],
     mouse_drag_max_distance_sqr: [c_float; 5],
     keys_down_duration: [c_float; 512],
     keys_down_duration_prev: [c_float; 512],
@@ -592,7 +732,9 @@ pub struct ImVector<T> {
 }
 
 impl<T> ImVector<T> {
-    pub unsafe fn as_slice(&self) -> &[T] { slice::from_raw_parts(self.data, self.size as usize) }
+    pub unsafe fn as_slice(&self) -> &[T] {
+        slice::from_raw_parts(self.data, self.size as usize)
+    }
 }
 
 #[repr(C)]
@@ -606,6 +748,28 @@ pub struct ImGuiTextFilter {
     pub input_buf: [c_char; 256],
     pub filters: ImVector<TextRange>,
     pub count_grep: c_int,
+}
+
+/// Data payload for Drag and Drop operations
+#[repr(C)]
+pub struct ImGuiPayload {
+    /// Data (copied and owned by dear imgui)
+    pub data: *const c_void,
+    /// Data size
+    pub data_size: c_int,
+
+    /// Source item id
+    source_id: ImGuiID,
+    /// Source parent id (if available)
+    source_parent_id: ImGuiID,
+    /// Data timestamp
+    data_frame_count: c_int,
+    /// Data type tag (short user-supplied string)
+    data_type: [c_char; 8 + 1],
+    /// Set when AcceptDragDropPayload() was called and mouse has been hovering the target item (nb: handle overlapping drag targets)
+    preview: bool,
+    /// Set when AcceptDragDropPayload() was called and mouse button is released over the target item.
+    delivery: bool,
 }
 
 #[repr(C)]
@@ -676,10 +840,8 @@ pub struct ImGuiListClipper {
     pub display_end: c_int,
 }
 
-pub type ImDrawCallback = Option<
-    extern "C" fn(parent_list: *const ImDrawList,
-                  cmd: *const ImDrawCmd),
->;
+pub type ImDrawCallback =
+    Option<extern "C" fn(parent_list: *const ImDrawList, cmd: *const ImDrawCmd)>;
 
 /// A single draw command within a parent ImDrawList (generally maps to 1 GPU draw call)
 #[repr(C)]
@@ -717,6 +879,8 @@ pub struct ImDrawList {
     pub idx_buffer: ImVector<ImDrawIdx>,
     pub vtx_buffer: ImVector<ImDrawVert>,
 
+    flags: ImDrawListFlags,
+    data: *const ImDrawListSharedData,
     owner_name: *const c_char,
     vtx_current_idx: c_uint,
     vtx_write_ptr: *mut ImDrawVert,
@@ -727,6 +891,20 @@ pub struct ImDrawList {
     channels_current: c_int,
     channels_count: c_int,
     channels: ImVector<ImDrawChannel>,
+}
+
+#[repr(C)]
+pub struct ImDrawListSharedData {
+    /// UV of white pixel in the atlas
+    tex_uv_white_pixel: ImVec2,
+    /// Current/default font (optional, for simplified AddText overload)
+    font: *mut ImFont,
+    /// Current/default font size (optional, for simplified AddText overload)
+    font_size: c_float,
+    curve_tessellation_tol: c_float,
+    /// Value for PushClipRectFullscreen()
+    clip_rect_fullscreen: ImVec4,
+    circle_vtx12: [ImVec2; 12],
 }
 
 /// All draw command lists required to render the frame
@@ -741,7 +919,7 @@ pub struct ImDrawData {
 
 impl ImDrawData {
     pub unsafe fn cmd_lists(&self) -> &[*const ImDrawList] {
-        let cmd_lists: *const *const ImDrawList = mem::transmute(self.cmd_lists);
+        let cmd_lists = self.cmd_lists as *const *const ImDrawList;
         slice::from_raw_parts(cmd_lists, self.cmd_lists_count as usize)
     }
 }
@@ -841,14 +1019,17 @@ extern "C" {
     pub fn igGetDrawData() -> *mut ImDrawData;
     pub fn igNewFrame();
     pub fn igRender();
+    pub fn igEndFrame();
     pub fn igShutdown();
 }
 
 // Demo/Debug/Info
 extern "C" {
-    pub fn igShowTestWindow(opened: *mut bool);
+    pub fn igShowDemoWindow(opened: *mut bool);
     pub fn igShowMetricsWindow(opened: *mut bool);
     pub fn igShowStyleEditor(style: *mut ImGuiStyle);
+    pub fn igShowStyleSelector(label: *const c_char);
+    pub fn igShowFontSelector(label: *const c_char);
     pub fn igShowUserGuide();
 }
 
@@ -893,7 +1074,6 @@ extern "C" {
         custom_callback_data: *mut c_void,
     );
     pub fn igSetNextWindowContentSize(size: ImVec2);
-    pub fn igSetNextWindowContentWidth(width: c_float);
     pub fn igSetNextWindowCollapsed(collapsed: bool, cond: ImGuiCond);
     pub fn igSetNextWindowFocus();
     pub fn igSetWindowPos(pos: ImVec2, cond: ImGuiCond);
@@ -913,18 +1093,8 @@ extern "C" {
     pub fn igSetScrollY(scroll_y: c_float);
     pub fn igSetScrollHere(center_y_ratio: c_float);
     pub fn igSetScrollFromPosY(pos_y: c_float, center_y_ratio: c_float);
-    pub fn igSetKeyboardFocusHere(offset: c_int);
     pub fn igSetStateStorage(tree: *mut ImGuiStorage);
     pub fn igGetStateStorage() -> *mut ImGuiStorage;
-}
-
-#[allow(non_snake_case)]
-#[deprecated(since = "0.0.18", note = "please use igSetNextWindowPos instead")]
-pub unsafe fn igSetNextWindowPosCenter(cond: ImGuiCond) {
-    let io = igGetIO();
-    let pos = ImVec2::new((*io).display_size.x * 0.5, (*io).display_size.y * 0.5);
-    let pivot = ImVec2::new(0.5, 0.5);
-    igSetNextWindowPos(pos, cond, pivot);
 }
 
 // Parameter stack (shared)
@@ -982,12 +1152,9 @@ extern "C" {
     pub fn igAlignTextToFramePadding();
     pub fn igGetTextLineHeight() -> c_float;
     pub fn igGetTextLineHeightWithSpacing() -> c_float;
-    pub fn igGetItemsLineHeightWithSpacing() -> c_float;
+    pub fn igGetFrameHeight() -> c_float;
+    pub fn igGetFrameHeightWithSpacing() -> c_float;
 }
-
-#[allow(non_snake_case)]
-#[deprecated(since = "0.0.18", note = "please use igAlignTextToFramePadding instead")]
-pub unsafe fn igAlignFirstTextHeightToWidgets() { igAlignTextToFramePadding(); }
 
 // Columns
 extern "C" {
@@ -1060,28 +1227,6 @@ extern "C" {
     pub fn igCheckboxFlags(label: ImStr, flags: *mut c_uint, flags_value: c_uint) -> bool;
     pub fn igRadioButtonBool(label: ImStr, active: bool) -> bool;
     pub fn igRadioButton(label: ImStr, v: *mut c_int, v_button: c_int) -> bool;
-    pub fn igCombo(
-        label: ImStr,
-        current_item: *mut c_int,
-        items: *const ImStr,
-        items_count: c_int,
-        height_in_items: c_int,
-    ) -> bool;
-    pub fn igCombo2(
-        label: ImStr,
-        current_item: *mut c_int,
-        items_separated_by_zeros: *const c_char,
-        height_in_items: c_int,
-    ) -> bool;
-    pub fn igCombo3(
-        label: ImStr,
-        current_item: *mut c_int,
-        items_getter: extern "C" fn(data: *mut c_void, idx: c_int, out_text: *mut ImStr)
-                                    -> bool,
-        data: *mut c_void,
-        items_count: c_int,
-        height_in_items: c_int,
-    ) -> bool;
     pub fn igPlotLines(
         label: ImStr,
         values: *const c_float,
@@ -1127,6 +1272,38 @@ extern "C" {
         graph_size: ImVec2,
     );
     pub fn igProgressBar(fraction: c_float, size_arg: *const ImVec2, overlay: ImStr);
+}
+
+// Combo
+extern "C" {
+    pub fn igBeginCombo(
+        label: *const c_char,
+        preview_value: *const c_char,
+        flags: ImGuiComboFlags,
+    ) -> bool;
+    pub fn igEndCombo();
+    pub fn igCombo(
+        label: ImStr,
+        current_item: *mut c_int,
+        items: *const ImStr,
+        items_count: c_int,
+        height_in_items: c_int,
+    ) -> bool;
+    pub fn igCombo2(
+        label: ImStr,
+        current_item: *mut c_int,
+        items_separated_by_zeros: *const c_char,
+        height_in_items: c_int,
+    ) -> bool;
+    pub fn igCombo3(
+        label: ImStr,
+        current_item: *mut c_int,
+        items_getter: extern "C" fn(data: *mut c_void, idx: c_int, out_text: *mut ImStr)
+                                    -> bool,
+        data: *mut c_void,
+        items_count: c_int,
+        height_in_items: c_int,
+    ) -> bool;
 }
 
 // Widgets: Color Editor/Picker
@@ -1473,7 +1650,7 @@ extern "C" {
         label: ImStr,
         current_item: *mut c_int,
         items_getter: extern "C" fn(data: *mut c_void, idx: c_int, out_text: *mut ImStr)
-                                    -> bool,
+            -> bool,
         data: *mut c_void,
         items_count: c_int,
         height_in_items: c_int,
@@ -1557,6 +1734,32 @@ extern "C" {
     pub fn igLogText(fmt: *const c_char, ...);
 }
 
+// DragDrop
+extern "C" {
+    /// Call when current ID is active.
+    ///
+    /// When this returns true you need to:
+    ///
+    /// 1. call [`igSetDragDropPayload`] exactly once,
+    /// 2. you may render the payload visual/description,
+    /// 3. pcall [`igEndDragDropSource`]
+    pub fn igBeginDragDropSource(flags: ImGuiDragDropFlags, mouse_button: c_int) -> bool;
+    /// Use 'cond' to choose to submit payload on drag start or every frame
+    pub fn igSetDragDropPayload(
+        type_: *const c_char,
+        data: *const c_void,
+        size: libc::size_t,
+        cond: ImGuiCond,
+    ) -> bool;
+    pub fn igEndDragDropSource();
+    pub fn igBeginDragDropTarget() -> bool;
+    pub fn igAcceptDragDropPayload(
+        type_: *const c_char,
+        flags: ImGuiDragDropFlags,
+    ) -> *const ImGuiPayload;
+    pub fn igEndDragDropTarget();
+}
+
 // Clipping
 extern "C" {
     pub fn igPushClipRect(
@@ -1570,6 +1773,14 @@ extern "C" {
 // Styles
 extern "C" {
     pub fn igStyleColorsClassic(dst: *mut ImGuiStyle);
+    pub fn igStyleColorsDark(dst: *mut ImGuiStyle);
+    pub fn igStyleColorsLight(dst: *mut ImGuiStyle);
+}
+
+// Focus
+extern "C" {
+    pub fn igSetItemDefaultFocus();
+    pub fn igSetKeyboardFocusHere(offset: c_int);
 }
 
 // Utilities
@@ -1584,11 +1795,8 @@ extern "C" {
     pub fn igGetItemRectMax(out: *mut ImVec2);
     pub fn igGetItemRectSize(out: *mut ImVec2);
     pub fn igSetItemAllowOverlap();
-    pub fn igIsWindowFocused() -> bool;
+    pub fn igIsWindowFocused(flags: ImGuiFocusedFlags) -> bool;
     pub fn igIsWindowHovered(flags: ImGuiHoveredFlags) -> bool;
-    pub fn igIsRootWindowFocused() -> bool;
-    pub fn igIsRootWindowOrAnyChildFocused() -> bool;
-    pub fn igIsRootWindowOrAnyChildHovered(flags: ImGuiHoveredFlags) -> bool;
     pub fn igIsAnyWindowHovered() -> bool;
     pub fn igIsRectVisible(item_size: ImVec2) -> bool;
     pub fn igIsRectVisible2(rect_min: *const ImVec2, rect_max: *const ImVec2) -> bool;
@@ -1637,6 +1845,12 @@ extern "C" {
     );
 }
 
+// DrawList
+extern "C" {
+    pub fn igGetOverlayDrawList() -> *mut ImDrawList;
+    pub fn igGetDrawListSharedData() -> *mut ImDrawListSharedData;
+}
+
 // Inputs
 extern "C" {
     pub fn igGetKeyIndex(imgui_key: ImGuiKey) -> c_int;
@@ -1661,18 +1875,6 @@ extern "C" {
     pub fn igCaptureMouseFromApp(capture: bool);
 }
 
-#[allow(non_snake_case)]
-#[deprecated(since = "0.0.18", note = "please use igIsItemHovered instead")]
-pub unsafe fn igIsItemRectHovered() -> bool { igIsItemHovered(ImGuiHoveredFlags::RectOnly) }
-#[allow(non_snake_case)]
-#[deprecated(since = "0.0.18", note = "please use igIsWindowHovered instead")]
-pub unsafe fn igIsWindowRectHovered() -> bool {
-    igIsWindowHovered(
-        ImGuiHoveredFlags::AllowWhenBlockedByPopup | ImGuiHoveredFlags::AllowWhenBlockedByActiveItem,
-    )
-}
-
-
 // Helpers functions to access functions pointers in ImGui::GetIO()
 extern "C" {
     pub fn igMemAlloc(sz: usize) -> *mut c_void;
@@ -1691,6 +1893,10 @@ extern "C" {
     pub fn igDestroyContext(ctx: *mut ImGuiContext);
     pub fn igGetCurrentContext() -> *mut ImGuiContext;
     pub fn igSetCurrentContext(ctx: *mut ImGuiContext);
+}
+
+extern "C" {
+    pub fn ImFontConfig_DefaultConstructor(config: *mut ImFontConfig);
 }
 
 // ImGuiIO
@@ -1730,7 +1936,7 @@ extern "C" {
     pub fn ImGuiTextBuffer_empty(buffer: *mut ImGuiTextBuffer) -> bool;
     pub fn ImGuiTextBuffer_clear(buffer: *mut ImGuiTextBuffer);
     pub fn ImGuiTextBuffer_c_str(buffer: *const ImGuiTextBuffer) -> *const c_char;
-    pub fn ImGuiTextBuffer_append(buffer: *const ImGuiTextBuffer, fmt: *const c_char, ...);
+    pub fn ImGuiTextBuffer_appendf(buffer: *const ImGuiTextBuffer, fmt: *const c_char, ...);
 // pub fn ImGuiTextBuffer_appendv(
 //     buffer: *const ImGuiTextBuffer,
 //     fmt: *const c_char,
@@ -1850,7 +2056,7 @@ extern "C" {
         b: ImVec2,
         col: ImU32,
         rounding: c_float,
-        rounding_corners_flags: c_int,
+        rounding_corners_flags: ImDrawCornerFlags,
         thickness: c_float,
     );
     pub fn ImDrawList_AddRectFilled(
@@ -1859,7 +2065,7 @@ extern "C" {
         b: ImVec2,
         col: ImU32,
         rounding: c_float,
-        rounding_corners_flags: c_int,
+        rounding_corners_flags: ImDrawCornerFlags,
     );
     pub fn ImDrawList_AddRectFilledMultiColor(
         list: *mut ImDrawList,
@@ -1908,6 +2114,7 @@ extern "C" {
         radius: c_float,
         col: ImU32,
         num_segments: c_int,
+        thickness: c_float,
     );
     pub fn ImDrawList_AddCircleFilled(
         list: *mut ImDrawList,
@@ -1954,6 +2161,17 @@ extern "C" {
         uv_d: ImVec2,
         col: ImU32,
     );
+    pub fn ImDrawList_AddImageRounded(
+        list: *mut ImDrawList,
+        user_texture_id: ImTextureID,
+        a: ImVec2,
+        b: ImVec2,
+        uv_a: ImVec2,
+        uv_b: ImVec2,
+        col: ImU32,
+        rounding: c_float,
+        rounding_corners: c_int,
+    );
     pub fn ImDrawList_AddPolyLine(
         list: *mut ImDrawList,
         points: *const ImVec2,
@@ -1961,14 +2179,12 @@ extern "C" {
         col: ImU32,
         closed: bool,
         thickness: c_float,
-        anti_aliased: bool,
     );
     pub fn ImDrawList_AddConvexPolyFilled(
         list: *mut ImDrawList,
         points: *const ImVec2,
         num_points: c_int,
         col: ImU32,
-        anti_aliased: bool,
     );
     pub fn ImDrawList_AddBezierCurve(
         list: *mut ImDrawList,
@@ -2170,6 +2386,7 @@ extern "C" {
     pub fn ImFont_SetFallbackChar(font: *mut ImFont, c: ImWchar);
     pub fn ImFont_GetCharAdvance(font: *const ImFont, c: ImWchar) -> c_float;
     pub fn ImFont_IsLoaded(font: *const ImFont) -> bool;
+    pub fn ImFont_GetDebugName(font: *const ImFont) -> *const c_char;
     pub fn ImFont_CalcTextSizeA(
         font: *const ImFont,
         out: *mut ImVec2,
@@ -2206,15 +2423,6 @@ extern "C" {
     );
 }
 
-#[allow(non_snake_case)]
-#[deprecated(since = "0.0.18", note = "please use ImFont_ClearOutputData instead")]
-pub unsafe fn ImFont_Clear(font: *mut ImFont) { ImFont_ClearOutputData(font); }
-#[allow(non_snake_case)]
-#[deprecated(since = "0.0.18", note = "please use ImFont_GetFallbackChar instead")]
-pub unsafe fn ImFont_GetFallbackXAdvance(font: *const ImFont) -> c_float {
-    ImFont_GetFallbackAdvanceX(font)
-}
-
 // ImFont::Glyph
 extern "C" {
     pub fn ImFont_Glyphs_size(font: *const ImFont) -> c_int;
@@ -2240,12 +2448,15 @@ fn test_default_style() {
     let style = unsafe { &*igGetStyle() };
     assert_eq!(style.alpha, 1.0);
     assert_eq!(style.window_padding, ImVec2::new(8.0, 8.0));
+    assert_eq!(style.window_rounding, 7.0);
+    assert_eq!(style.window_border_size, 0.0);
     assert_eq!(style.window_min_size, ImVec2::new(32.0, 32.0));
-    assert_eq!(style.window_rounding, 9.0);
     assert_eq!(style.window_title_align, ImVec2::new(0.0, 0.5));
-    assert_eq!(style.child_window_rounding, 0.0);
+    assert_eq!(style.popup_rounding, 0.0);
+    assert_eq!(style.popup_border_size, 1.0);
     assert_eq!(style.frame_padding, ImVec2::new(4.0, 3.0));
     assert_eq!(style.frame_rounding, 0.0);
+    assert_eq!(style.frame_border_size, 0.0);
     assert_eq!(style.item_spacing, ImVec2::new(8.0, 4.0));
     assert_eq!(style.item_inner_spacing, ImVec2::new(4.0, 4.0));
     assert_eq!(style.touch_extra_padding, ImVec2::new(0.0, 0.0));
@@ -2259,6 +2470,6 @@ fn test_default_style() {
     assert_eq!(style.display_window_padding, ImVec2::new(22.0, 22.0));
     assert_eq!(style.display_safe_area_padding, ImVec2::new(4.0, 4.0));
     assert_eq!(style.anti_aliased_lines, true);
-    assert_eq!(style.anti_aliased_shapes, true);
+    assert_eq!(style.anti_aliased_fill, true);
     assert_eq!(style.curve_tessellation_tol, 1.25);
 }
