@@ -316,7 +316,7 @@ impl<'ui> Ui<'ui> {
                     idx_buffer: (*cmd_list).idx_buffer.as_slice(),
                     vtx_buffer: (*cmd_list).vtx_buffer.as_slice(),
                 };
-                try!(f(&self, draw_list));
+                f(&self, draw_list)?;
             }
             CURRENT_UI = None;
         }

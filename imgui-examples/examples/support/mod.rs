@@ -9,7 +9,6 @@ struct MouseState {
 }
 
 pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_ui: F) {
-    use glium::glutin;
     use glium::{Display, Surface};
     use imgui_glium_renderer::Renderer;
 
@@ -17,7 +16,7 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
     let context = glutin::ContextBuilder::new().with_vsync(true);
     let window = glutin::WindowBuilder::new()
         .with_title(title)
-        .with_dimensions(1024, 768);
+        .with_dimensions(glutin::dpi::LogicalSize::new(1024.0, 768.0));
     let display = Display::new(window, context, &events_loop).unwrap();
 
     let mut imgui = ImGui::init();
@@ -38,7 +37,7 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
 
             if let Event::WindowEvent { event, .. } = event {
                 match event {
-                    Closed => quit = true,
+                    CloseRequested => quit = true,
                     KeyboardInput { input, .. } => {
                         use glium::glutin::VirtualKeyCode as Key;
 
@@ -72,7 +71,7 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
                             _ => {}
                         }
                     }
-                    CursorMoved { position: (x, y), .. } => mouse_state.pos = (x as i32, y as i32),
+                    CursorMoved { position: pos, .. } => mouse_state.pos = pos.into(),
                     MouseInput { state, button, .. } => {
                         match button {
                             MouseButton::Left => mouse_state.pressed.0 = state == Pressed,
@@ -85,12 +84,12 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
                         delta: MouseScrollDelta::LineDelta(_, y),
                         phase: TouchPhase::Moved,
                         ..
-                    } |
+                    } => mouse_state.wheel = y,
                     MouseWheel {
-                        delta: MouseScrollDelta::PixelDelta(_, y),
+                        delta: MouseScrollDelta::PixelDelta(pos),
                         phase: TouchPhase::Moved,
                         ..
-                    } => mouse_state.wheel = y,
+                    } => mouse_state.wheel = pos.y as f32,
                     ReceivedCharacter(c) => imgui.add_input_character(c),
                     _ => (),
                 }
@@ -105,10 +104,12 @@ pub fn run<F: FnMut(&Ui) -> bool>(title: String, clear_color: [f32; 4], mut run_
         update_mouse(&mut imgui, &mut mouse_state);
 
         let gl_window = display.gl_window();
-        let size_points = gl_window.get_inner_size_points().unwrap();
-        let size_pixels = gl_window.get_inner_size_pixels().unwrap();
+        let window = gl_window.window();
+        let dpi_factor = window.get_hidpi_factor();
+        let size_points = window.get_inner_size().unwrap();
+        let size_pixels = size_points.to_physical(dpi_factor);
 
-        let ui = imgui.frame(size_points, size_pixels, delta_s);
+        let ui = imgui.frame(size_points.into(), size_pixels.into(), delta_s);
         if !run_ui(&ui) {
             break;
         }

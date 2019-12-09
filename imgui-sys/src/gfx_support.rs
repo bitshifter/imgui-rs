@@ -28,7 +28,7 @@ impl Structure<Format> for ImDrawVert {
                 None => (name, 0),
             }
         };
-        let dummy: &ImDrawVert = unsafe { mem::transmute(0usize) };
+        let dummy: &ImDrawVert = unsafe { mem::MaybeUninit::zeroed().assume_init() };
         match sub_name {
             "pos" => {
                 Some(Element {

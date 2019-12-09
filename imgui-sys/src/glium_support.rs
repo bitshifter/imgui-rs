@@ -5,23 +5,20 @@ use std::os::raw::c_float;
 
 use super::{ImDrawVert, ImVec2, ImVec4};
 
-#[cfg(feature = "glium")]
 unsafe impl Attribute for ImVec2 {
     fn get_type() -> AttributeType { <(c_float, c_float) as Attribute>::get_type() }
 }
 
-#[cfg(feature = "glium")]
 unsafe impl Attribute for ImVec4 {
     fn get_type() -> AttributeType {
         <(c_float, c_float, c_float, c_float) as Attribute>::get_type()
     }
 }
 
-#[cfg(feature = "glium")]
 impl Vertex for ImDrawVert {
     fn build_bindings() -> VertexFormat {
         unsafe {
-            let dummy: &ImDrawVert = mem::transmute(0usize);
+            let dummy: &ImDrawVert = mem::MaybeUninit::zeroed().assume_init();
             Cow::Owned(vec![
                 (
                     "pos".into(),
